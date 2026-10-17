@@ -39,6 +39,7 @@ src/scenes.{c,h}  the scene table: default loop and the extras
 src/main.c        framebuffer setup, scene sequencer, fades, fps log
 src/scenes/*.c    one file per scene
 tools/preview.c   offscreen renderer, benchmark and motion probe (Mac or Pi)
+tools/flipbook.*  whole scenes as a self-contained HTML flipbook (spec in flipbook.json)
 slides/*.txt      German text of the slide decks (data, not code)
 system/           systemd unit template that runs the show on tty1
 tools/install.sh  on the Pi: make, install unit, restart, check it stays up
@@ -111,10 +112,22 @@ build/preview crt probe 3.00 3.08 3.16    # white-marker centroid and non-black 
 
 `frames` and `probe` call `frame(t)` once per time, so scenes that build their
 state frame by frame (stars, flowers, explode, matrix) need `seq` from 0; the
-sequencer's fade in and out is not applied. Stills miss motion bugs: a beam that
-aliased against the 12.5 fps stepping ran backwards while every single frame
-looked right. Probe positions over consecutive steps, and hash frames that must
-be identical.
+sequencer's fade in and out is not applied. Stills miss motion bugs: a beam
+that aliased against the 12.5 fps stepping ran backwards while every single
+frame looked right. Probe positions over consecutive steps, and hash frames
+that must be identical.
+
+Whole scenes as a flipbook, one HTML file with every frame embedded, playable
+and scrubbable in any browser, no fonts or scripts loaded from the net
+(standard-library Python, no image tools needed):
+
+```sh
+python3 tools/flipbook.py tools/flipbook.json build/flipbook.html
+```
+
+`tools/flipbook.json` names the scenes, frame rates, timeline marks and notes;
+its text is CC-BY-4.0 like the slides. The two scenes at 12.5 and 25 fps come
+to about 2.3 MB.
 
 ## Slides
 
@@ -137,7 +150,7 @@ double blit palette heat rgb565 sine term cpu` (see `src/scenes/slides.c`).
 
 - **Code** (`src/`, `tools/`, `scripts/`, `Makefile`, `system/`):
   GPL-3.0-or-later, see [LICENSE](LICENSE).
-- **Texts** (`slides/*.txt`, this README): CC-BY-4.0, see
+- **Texts** (`slides/*.txt`, `tools/flipbook.json`, this README): CC-BY-4.0, see
   [LICENSE-CC-BY-4.0](LICENSE-CC-BY-4.0). Reuse them anywhere, including in
   works under other licenses, as long as you credit "bitcircus101", link
   bitcircus101.de and mark your changes.

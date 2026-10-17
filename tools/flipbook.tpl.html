@@ -1,0 +1,162 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Template for tools/flipbook.py, which fills LANG, TITLE, EYEBROW, LEDE, FOOTER, SECTIONS and SEQS. -->
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}}</title>
+<style>
+  /* Layout: one column of 760px; each scene is a TV frame with a console strip beneath it,
+     then a timeline and notes. Single dark theme by choice: this is a CRT viewer.
+     System fonts only: the file must work offline and must not call out to a font host. */
+  :root {
+    --bg: #050a1c;
+    --panel: #0b1431;
+    --line: #1d2b5c;
+    --ink: #e8edff;
+    --ink-2: #93a0d0;
+    --phosphor: #3cff8c;
+    --amber: #ffe678;
+    --display: "Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+    --body: system-ui, "Helvetica Neue", Arial, sans-serif;
+    --mono: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-block: 32px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 760px; margin: 0 auto; display: grid; gap: 48px; }
+  header { display: grid; gap: 8px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  h1 {
+    font-family: var(--display); font-weight: 600; font-size: clamp(36px, 7vw, 56px);
+    line-height: 1; margin: 0; text-wrap: balance; letter-spacing: 0.01em;
+  }
+  h2 {
+    font-family: var(--display); font-weight: 500; font-size: 26px; margin: 0; line-height: 1.15;
+    text-wrap: balance;
+  }
+  p { margin: 0; max-width: 65ch; }
+  .lede { color: var(--ink-2); max-width: 60ch; }
+  section.set { display: grid; gap: 16px; }
+  .set-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+  .tag { font-family: var(--mono); font-size: 13px; color: var(--phosphor); }
+  .tv {
+    background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 0;
+    display: grid; justify-items: center; overflow: hidden;
+  }
+  canvas {
+    display: block; width: 100%; max-width: 720px; aspect-ratio: 5 / 4;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+  }
+  .console {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums;
+  }
+  button, select {
+    font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 4px; padding: 6px 12px; cursor: pointer;
+  }
+  button { min-width: 6em; }
+  button:hover, select:hover { border-color: var(--phosphor); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--phosphor); outline-offset: 2px; }
+  input[type=range] { flex: 1 1 160px; accent-color: var(--phosphor); min-width: 120px; }
+  .readout { color: var(--ink-2); white-space: nowrap; }
+  .timeline {
+    position: relative; height: 34px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+  }
+  .seg {
+    position: absolute; top: 8px; height: 18px; line-height: 18px; padding: 0 6px;
+    border-left: 2px solid var(--amber); color: var(--amber); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; box-sizing: border-box;
+  }
+  .tick { position: absolute; top: 0; height: 100%; border-left: 2px solid var(--phosphor); color: var(--phosphor); padding-left: 6px; line-height: 34px; }
+  .head { position: absolute; top: 0; height: 100%; width: 2px; background: var(--ink); opacity: 0.9; }
+  dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; max-width: 65ch; }
+  dt { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); padding-top: 3px; }
+  dd { margin: 0; }
+  footer { border-top: 1px solid var(--line); padding-top: 24px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--phosphor); }
+  @media (max-width: 480px) { dl.facts { grid-template-columns: 1fr; gap: 2px 0; } dd { margin-bottom: 8px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">{{EYEBROW}}</div>
+    <h1>{{TITLE}}</h1>
+    <p class="lede">{{LEDE}}</p>
+  </header>
+{{SECTIONS}}
+  <footer><p>{{FOOTER}}</p></footer>
+</main>
+
+<script>
+  const SEQS = /*SEQS*/;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function flip(seq) {
+    const id = seq.id, frames = seq.frames, fps = seq.fps;
+    const canvas = document.getElementById(id + "-canvas"), ctx = canvas.getContext("2d");
+    const play = document.getElementById(id + "-play"), scrub = document.getElementById(id + "-scrub");
+    const speed = document.getElementById(id + "-speed"), readout = document.getElementById(id + "-readout");
+    const timeline = document.getElementById(id + "-timeline");
+    const n = frames.length, dur = n / fps;
+    const imgs = frames.map(src => { const im = new Image(); im.src = src; return im; });
+    let i = 0, playing = !reduced, acc = 0, last = null;
+
+    for (const m of seq.marks) {
+      const el = document.createElement("div");
+      const a = (m.t0 - seq.t0) / dur * 100;
+      if (m.t1 === undefined) {
+        el.className = "tick"; el.style.left = a + "%";
+      } else {
+        el.className = "seg"; el.style.left = a + "%"; el.style.width = ((m.t1 - m.t0) / dur * 100) + "%";
+      }
+      el.textContent = m.label; timeline.appendChild(el);
+    }
+    const head = document.createElement("div"); head.className = "head"; timeline.appendChild(head);
+
+    function show(k) {
+      i = k;
+      const im = imgs[i];
+      if (im.complete) ctx.drawImage(im, 0, 0); else im.onload = () => { if (i === k) ctx.drawImage(im, 0, 0); };
+      scrub.value = i;
+      const t = seq.t0 + i / fps;
+      readout.textContent = "t = " + t.toFixed(2) + " s · frame " + (i + 1) + "/" + n;
+      head.style.left = (i / fps / dur * 100) + "%";
+    }
+    function label() { play.textContent = playing ? "Pause" : "Play"; }
+    function tick(now) {
+      if (last === null) last = now;
+      if (playing) {
+        acc += (now - last) / 1000 * parseFloat(speed.value);
+        const step = 1 / fps;
+        if (acc >= step) { const adv = Math.floor(acc / step); acc -= adv * step; show((i + adv) % n); }
+      }
+      last = now;
+      requestAnimationFrame(tick);
+    }
+    play.addEventListener("click", () => { playing = !playing; label(); });
+    scrub.addEventListener("input", () => { show(parseInt(scrub.value, 10)); acc = 0; });
+    show(0); label();
+    requestAnimationFrame(tick);
+  }
+
+  for (const seq of SEQS) flip(seq);
+</script>
+</body>
+</html>
