@@ -35,8 +35,10 @@ vc4.tv_norm=PAL video=Composite-1:720x288@50,margin_left=56,margin_right=40,marg
 
 ```
 src/core.{c,h}    canvas (360x288 RGB565), fonts, drawing helpers
+src/scenes.{c,h}  the scene table: default loop and the extras
 src/main.c        framebuffer setup, scene sequencer, fades, fps log
 src/scenes/*.c    one file per scene
+tools/preview.c   offscreen renderer, benchmark and motion probe (Mac or Pi)
 slides/*.txt      German text of the slide decks (data, not code)
 system/           systemd unit template that runs the show on tty1
 tools/install.sh  on the Pi: make, install unit, restart, check it stays up
@@ -88,9 +90,31 @@ Stop the service before starting scenes by hand, otherwise both draw on tty1.
 
 1. Create `src/scenes/<name>.c` ending in
    `const Scene scene_<name> = {"<name>", seconds, init_or_NULL, frame};`
-2. Declare it in `src/main.c` and add it to `all[]` (loop) or `extra[]` (on demand).
+2. Declare it in `src/scenes.c` and add it to `scene_loop[]` or `scene_extra[]` (on demand).
 3. `frame(t, dt)` draws one picture for scene time `t` into `buf[]`; keep it
    under 20 ms on the Pi 1 — precompute tables in `init`.
+4. Look at it before deploying: see "Previewing without the Pi" below.
+
+## Previewing without the Pi
+
+`make preview` builds `build/preview` on the Mac (clang) as well as on the Pi; it
+links the scenes without the framebuffer. It reads `fonts/`, which on the Mac you
+copy from the Pi (`make clean` removes the directory, then copy again):
+
+```sh
+mkdir -p fonts && scp -O tvtv-deploy:'tvtv/fonts/*.psf' fonts/
+build/preview crt frames out 3.0 9.5      # one 720x576 BMP per time (sips -s format png x.bmp --out x.png)
+build/preview -1x bernd seq out 0 13 25   # numbered 360x288 frames, e.g. for a flipbook
+build/preview crt bench 400               # average and worst frame time; real numbers only on the Pi
+build/preview crt probe 3.00 3.08 3.16    # white-marker centroid and non-black box, for motion checks
+```
+
+`frames` and `probe` call `frame(t)` once per time, so scenes that build their
+state frame by frame (stars, flowers, explode, matrix) need `seq` from 0; the
+sequencer's fade in and out is not applied. Stills miss motion bugs: a beam that
+aliased against the 12.5 fps stepping ran backwards while every single frame
+looked right. Probe positions over consecutive steps, and hash frames that must
+be identical.
 
 ## Slides
 

@@ -3,6 +3,7 @@
 // usage: bc101 [-l] [-t seconds] [scene ...]
 // Fonts and slides are looked up next to the executable (fonts/, slides/).
 #include "core.h"
+#include "scenes.h"
 
 #include <fcntl.h>
 #include <linux/fb.h>
@@ -17,21 +18,6 @@
 #include <unistd.h>
 
 #define FADE 0.4f
-
-extern const Scene scene_boot, scene_bounce, scene_explode, scene_plasma, scene_stars, scene_tunnel,
-    scene_matrix, scene_juggle, scene_fire, scene_glitch, scene_outrun, scene_flowers, scene_rainbow,
-    scene_kaleido, scene_hippie, scene_crt, scene_bernd, scene_explain, scene_stack, scene_testcard;
-
-static const Scene *all[] = {
-    &scene_boot, &scene_flowers, &scene_bounce, &scene_rainbow, &scene_explode, &scene_kaleido,
-    &scene_plasma, &scene_stars, &scene_hippie, &scene_tunnel, &scene_matrix, &scene_juggle,
-    &scene_fire, &scene_glitch, &scene_outrun, &scene_crt, &scene_bernd,
-};
-#define NALL (int)(sizeof all / sizeof all[0])
-
-// Selectable by name only, not part of the default loop.
-static const Scene *extra[] = {&scene_explain, &scene_stack, &scene_testcard};
-#define NEXTRA (int)(sizeof extra / sizeof extra[0])
 
 static volatile sig_atomic_t run = 1;
 static void on_sig(int s) { (void)s; run = 0; }
@@ -48,22 +34,19 @@ int main(int argc, char **argv) {
     int nsel = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-l")) {
-            for (int k = 0; k < NALL; k++) printf("%-8s %4.0fs\n", all[k]->name, all[k]->dur);
-            for (int k = 0; k < NEXTRA; k++) printf("%-8s slides (extra)\n", extra[k]->name);
+            scene_list();
             return 0;
         } else if (!strcmp(argv[i], "-t") && i + 1 < argc) {
             limit = atof(argv[++i]);
         } else {
-            int found = 0;
-            for (int k = 0; k < NALL && nsel < 64; k++)
-                if (!strcmp(argv[i], all[k]->name)) { sel[nsel++] = all[k]; found = 1; }
-            for (int k = 0; k < NEXTRA && nsel < 64; k++)
-                if (!strcmp(argv[i], extra[k]->name)) { sel[nsel++] = extra[k]; found = 1; }
-            if (!found) { fprintf(stderr, "unknown scene: %s\n", argv[i]); return 1; }
+            const Scene *sc = scene_find(argv[i]);
+            if (!sc) { fprintf(stderr, "unknown scene: %s\n", argv[i]); return 1; }
+            if (nsel >= 64) { fprintf(stderr, "too many scenes (max 64)\n"); return 1; }
+            sel[nsel++] = sc;
         }
     }
     if (!nsel)
-        for (int k = 0; k < NALL; k++) sel[nsel++] = all[k];
+        for (int k = 0; k < scene_nloop; k++) sel[nsel++] = scene_loop[k];
 
     if (asset_init()) {
         perror("/proc/self/exe");

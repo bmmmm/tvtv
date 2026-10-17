@@ -2,13 +2,14 @@
 // How a cathode ray tube paints a picture, in the look of 90s TV graphics: flat-shaded
 // polygons with a painter's sort, an additive "glass" bell, a camera stepped at 12.5 fps,
 // and labels on leader lines. The beam runs gun -> deflection coils -> screen and scans
-// a raster that fades like phosphor.
+// a raster that fades like phosphor. All geometry is fixed in world space and built in init().
 #include "core.h"
 
 #include <stddef.h>
 
 #define RATE 12.5f // the picture only changes this often: the jerky 90s render look
 #define NSEG 16    // facets around the tube, and the vertex limit of one facet
+#define NGUN 8     // facets of the gun
 #define NRING 4    // rings along the bell
 #define NL 16      // raster lines on the screen
 #define SPL 3      // picture steps per raster line, so the sweep visibly runs left to right
@@ -47,16 +48,62 @@ typedef struct {
     uint16_t c;
 } Poly;
 
+typedef struct { // a cylinder section: two rings of n points
+    V3 a[NSEG], b[NSEG];
+    int n;
+} Tube;
+
 static Poly polys[MAXP];
 static int npoly;
 static float ca, sa, cb, sb; // camera yaw and pitch
 static uint16_t bg[H];
 static int xl[H], xr[H];
 
+// world-space geometry, built once in init()
+static Tube gun, coil, neck;
+static V3 sock[NSEG], scr[NSEG], rings[NRING][NSEG], wind[3][NSEG];
+static V3 ras_l[NL], ras_r[NL]; // ends of every raster line
+static const V3 beam_g = {0, 0, Z_GUN1}, beam_d = {0, 0, (Z_COIL0 + Z_COIL1) / 2};
+
+// Cross-section of the bell: circle at the neck (s = 0), rounded rectangle at the screen (s = 1).
+static V3 ring_pt(int i, float s, float z) {
+    float a = i * 2 * PI / NSEG, c = cosf(a), sn = sinf(a);
+    float rx = SCR_A * (c < 0 ? -1 : 1) * sqrtf(fabsf(c)), ry = SCR_B * (sn < 0 ? -1 : 1) * sqrtf(fabsf(sn));
+    float e = powf(s, 1.4f);
+    V3 p = {R_NECK * c * (1 - e) + rx * e, R_NECK * sn * (1 - e) + ry * e, z};
+    return p;
+}
+
+static void tube(Tube *t, float r, float z0, float z1, int n) {
+    t->n = n > NSEG ? NSEG : n;
+    for (int i = 0; i < t->n; i++) {
+        float a = i * 2 * PI / t->n;
+        t->a[i] = (V3){r * cosf(a), r * sinf(a), z0};
+        t->b[i] = (V3){r * cosf(a), r * sinf(a), z1};
+    }
+}
+
 static void init(void) {
     for (int y = 0; y < H; y++) {
         float f = y / (float)(H - 1);
         bg[y] = rgb((int)(14 - 12 * f), (int)(26 - 24 * f), (int)(84 - 74 * f));
+    }
+    tube(&gun, R_GUN, Z_GUN0, Z_GUN1, NGUN);
+    tube(&coil, R_COIL, Z_COIL0, Z_COIL1, NSEG);
+    tube(&neck, R_NECK, Z_NECK0, Z_COIL0, NSEG);
+    for (int i = 0; i < NSEG; i++) {
+        float a = i * 2 * PI / NSEG;
+        sock[i] = (V3){R_NECK * cosf(a), R_NECK * sinf(a), Z_SOCK};
+        scr[i] = ring_pt(i, 1, Z_SCREEN);
+        for (int k = 0; k < NRING; k++)
+            rings[k][i] = ring_pt(i, k / (float)(NRING - 1), Z_COIL1 + (Z_SCREEN - Z_COIL1) * k / (NRING - 1));
+        for (int k = 0; k < 3; k++) // coil windings
+            wind[k][i] = (V3){R_COIL * cosf(a), R_COIL * sinf(a), Z_COIL0 + (Z_COIL1 - Z_COIL0) * (k + 1) / 4};
+    }
+    for (int k = 0; k < NL; k++) {
+        float y = RAS_B - k * 2 * RAS_B / (NL - 1);
+        ras_l[k] = (V3){-RAS_A, y, Z_SCREEN - 0.5f};
+        ras_r[k] = (V3){RAS_A, y, Z_SCREEN - 0.5f};
     }
 }
 
@@ -168,32 +215,21 @@ static void glass(int n, const V3 *w) {
     poly_fill(n, sx, sy, scale16(rgb(70, 100, 190), (int)(30 + 70 * lam + 80 * g * g)), 1);
 }
 
-// Cross-section of the bell: circle at the neck (s = 0), rounded rectangle at the screen (s = 1).
-static V3 ring_pt(int i, float s, float z) {
-    float a = i * 2 * PI / NSEG, c = cosf(a), sn = sinf(a);
-    float rx = SCR_A * (c < 0 ? -1 : 1) * sqrtf(fabsf(c)), ry = SCR_B * (sn < 0 ? -1 : 1) * sqrtf(fabsf(sn));
-    float e = powf(s, 1.4f);
-    V3 p = {R_NECK * c * (1 - e) + rx * e, R_NECK * sn * (1 - e) + ry * e, z};
-    return p;
+static void tube_solid(const Tube *t, uint16_t c) { // sides and both caps
+    for (int i = 0; i < t->n; i++) {
+        int j = (i + 1) % t->n;
+        V3 q[4] = {t->a[i], t->a[j], t->b[j], t->b[i]};
+        opaque(4, q, c);
+    }
+    opaque(t->n, t->a, c);
+    opaque(t->n, t->b, c);
 }
 
-static void cylinder(float r, float z0, float z1, int n, uint16_t c, int solid, int caps) {
-    V3 r0[NSEG], r1[NSEG];
-    if (n > NSEG) n = NSEG;
-    for (int i = 0; i < n; i++) {
-        float a = i * 2 * PI / n;
-        r0[i] = (V3){r * cosf(a), r * sinf(a), z0};
-        r1[i] = (V3){r * cosf(a), r * sinf(a), z1};
-    }
-    for (int i = 0; i < n; i++) {
-        int j = (i + 1) % n;
-        V3 q[4] = {r0[i], r0[j], r1[j], r1[i]};
-        if (solid) opaque(4, q, c);
-        else glass(4, q);
-    }
-    if (caps) {
-        opaque(n, r0, c);
-        opaque(n, r1, c);
+static void tube_glass(const Tube *t) { // sides only
+    for (int i = 0; i < t->n; i++) {
+        int j = (i + 1) % t->n;
+        V3 q[4] = {t->a[i], t->a[j], t->b[j], t->b[i]};
+        glass(4, q);
     }
 }
 
@@ -236,19 +272,13 @@ static void frame(float t, float dt) {
         for (int x = 0; x < W; x++) row[x] = bg[y];
     }
 
-    // opaque parts: socket, gun, coils, screen
+    // opaque parts: socket, gun, coils, screen; sorted far to near
     npoly = 0;
-    V3 sock[NSEG], scr[NSEG];
-    for (int i = 0; i < NSEG; i++) {
-        float a = i * 2 * PI / NSEG;
-        sock[i] = (V3){R_NECK * cosf(a), R_NECK * sinf(a), Z_SOCK};
-        scr[i] = ring_pt(i, 1, Z_SCREEN);
-    }
     opaque(NSEG, sock, rgb(70, 70, 80));
-    cylinder(R_GUN, Z_GUN0, Z_GUN1, 8, rgb(165, 165, 180), 1, 1);
-    cylinder(R_COIL, Z_COIL0, Z_COIL1, NSEG, rgb(210, 115, 45), 1, 1);
+    tube_solid(&gun, rgb(165, 165, 180));
+    tube_solid(&coil, rgb(210, 115, 45));
     opaque(NSEG, scr, rgb(30, 52, 48));
-    for (int i = 1; i < npoly; i++) { // far to near
+    for (int i = 1; i < npoly; i++) {
         Poly p = polys[i];
         int j = i - 1;
         for (; j >= 0 && polys[j].depth < p.depth; j--) polys[j + 1] = polys[j];
@@ -257,11 +287,7 @@ static void frame(float t, float dt) {
     for (int i = 0; i < npoly; i++) poly_fill(polys[i].n, polys[i].sx, polys[i].sy, polys[i].c, 0);
 
     // glass: neck up to the coils, then the bell
-    cylinder(R_NECK, Z_NECK0, Z_COIL0, NSEG, 0, 0, 0);
-    V3 rings[NRING][NSEG];
-    for (int k = 0; k < NRING; k++)
-        for (int i = 0; i < NSEG; i++)
-            rings[k][i] = ring_pt(i, k / (float)(NRING - 1), Z_COIL1 + (Z_SCREEN - Z_COIL1) * k / (NRING - 1));
+    tube_glass(&neck);
     for (int k = 0; k < NRING - 1; k++)
         for (int i = 0; i < NSEG; i++) {
             int j = (i + 1) % NSEG;
@@ -270,58 +296,50 @@ static void frame(float t, float dt) {
         }
 
     // edges, like a wireframe laid over the render
-    uint16_t edge = rgb(110, 140, 200), wind = rgb(120, 60, 20);
+    uint16_t edge = rgb(110, 140, 200), copper = rgb(120, 60, 20);
     for (int k = 0; k < NRING; k++)
         for (int i = 0; i < NSEG; i++) line_w(rings[k][i], rings[k][(i + 1) % NSEG], edge);
     for (int i = 0; i < NSEG; i += 2) {
         for (int k = 0; k < NRING - 1; k++) line_w(rings[k][i], rings[k + 1][i], edge);
-        V3 a = {R_NECK * cosf(i * 2 * PI / NSEG), R_NECK * sinf(i * 2 * PI / NSEG), Z_NECK0}, b = a;
-        b.z = Z_COIL0;
-        line_w(a, b, edge);
+        line_w(neck.a[i], neck.b[i], edge);
     }
     for (int i = 0; i < NSEG; i++) {
-        float a0 = i * 2 * PI / NSEG, a1 = (i + 1) * 2 * PI / NSEG;
-        V3 p = {R_NECK * cosf(a0), R_NECK * sinf(a0), Z_NECK0}, q = {R_NECK * cosf(a1), R_NECK * sinf(a1), Z_NECK0};
-        line_w(p, q, edge);
-        for (int k = 0; k < 3; k++) { // coil windings
-            float z = Z_COIL0 + (Z_COIL1 - Z_COIL0) * (k + 1) / 4;
-            V3 u = {R_COIL * cosf(a0), R_COIL * sinf(a0), z}, v = {R_COIL * cosf(a1), R_COIL * sinf(a1), z};
-            line_w(u, v, wind);
-        }
+        int j = (i + 1) % NSEG;
+        line_w(neck.a[i], neck.a[j], edge);
+        for (int k = 0; k < 3; k++) line_w(wind[k][i], wind[k][j], copper);
     }
 
     // raster on the screen with phosphor persistence; counted in picture steps so that
     // the sweep is monotonic (a line time that is not a multiple of a step would alias)
     int ps = step % PERIOD, cur = ps < NL * SPL ? ps / SPL : -1;
-    float frac = (ps % SPL) / (float)SPL, ycur = 0;
+    float frac = (ps % SPL) / (float)SPL;
     for (int k = 0; k < NL; k++) {
-        float y = RAS_B - k * 2 * RAS_B / (NL - 1), x1 = RAS_A;
+        if (step < PERIOD && cur >= 0 && k > cur) continue; // first field: nothing painted yet below the beam
+        V3 e = ras_r[k];
         int age; // steps since the line was completed
         if (k == cur) {
-            x1 = -RAS_A + 2 * RAS_A * frac;
+            e.x = -RAS_A + 2 * RAS_A * frac;
             age = 0;
-            ycur = y;
         } else if (cur < 0 || k < cur) {
             age = ps - (k + 1) * SPL;
         } else {
             age = ps + PERIOD - (k + 1) * SPL;
         }
         float b = 1 - age / (float)PERIOD;
-        V3 a = {-RAS_A, y, Z_SCREEN - 0.5f}, e = {x1, y, Z_SCREEN - 0.5f};
-        line_w(a, e, scale16(rgb(60, 255, 140), (int)(b * 256)));
+        line_w(ras_l[k], e, scale16(rgb(60, 255, 140), (int)(b * 256)));
     }
 
     // the beam: gun -> deflection point inside the coils -> screen
-    V3 g = {0, 0, Z_GUN1}, d = {0, 0, (Z_COIL0 + Z_COIL1) / 2}, s;
+    V3 s;
     if (cur >= 0) {
-        s = (V3){-RAS_A + 2 * RAS_A * frac, ycur, Z_SCREEN - 0.5f};
+        s = (V3){-RAS_A + 2 * RAS_A * frac, ras_l[cur].y, Z_SCREEN - 0.5f};
     } else {
         float f = (ps - NL * SPL) / (float)FLYS; // flyback: blanked, swinging back to the top left
         s = (V3){RAS_A - 2 * RAS_A * f, -RAS_B + 2 * RAS_B * f, Z_SCREEN - 0.5f};
     }
     int gx, gy, dx, dy, sx, sy;
-    proj_w(g, &gx, &gy);
-    proj_w(d, &dx, &dy);
+    proj_w(beam_g, &gx, &gy);
+    proj_w(beam_d, &dx, &dy);
     proj_w(s, &sx, &sy);
     if (cur >= 0) {
         glow_line(gx, gy, dx, dy, rgb(200, 255, 255), rgb(0, 90, 110));
