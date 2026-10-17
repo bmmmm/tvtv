@@ -1,3 +1,4 @@
+SPDX-License-Identifier: CC-BY-4.0
 # Making-of
 @pipe
 Diese Show läuft auf einem Raspberry Pi 1

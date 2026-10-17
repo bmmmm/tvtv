@@ -103,10 +103,24 @@ after the next `scripts/deploy.sh` (which restarts bc101).
 plain text         body, max 44 characters per line, max 10 lines
 ```
 
+Lines before the first `#` are ignored (that is where the SPDX header lives).
+
 Demos: `pipe chain bars pixels fps plasma fire particles list rainbow buf1d
 double blit palette heat rgb565 sine term cpu` (see `src/scenes/slides.c`).
 
 ## License
 
-GPL-3.0-or-later, see [LICENSE](LICENSE). The Terminus console fonts are not
-bundled; `make` extracts them from the system on the Pi.
+- **Code** (`src/`, `tools/`, `scripts/`, `Makefile`, `system/`):
+  GPL-3.0-or-later, see [LICENSE](LICENSE).
+- **Texts** (`slides/*.txt`, this README): CC-BY-4.0, see
+  [LICENSE-CC-BY-4.0](LICENSE-CC-BY-4.0). Reuse them anywhere, including in
+  works under other licenses, as long as you credit "bitcircus101", link
+  bitcircus101.de and mark your changes.
+
+Two licenses because they fit different things: GPL keeps the program and
+its derivatives open, CC-BY lets the prose travel into talks, articles or
+newsletters with just an attribution. The slides are only loaded as data by
+the program, so this split causes no conflict.
+
+The Terminus console fonts are not bundled; `make` extracts them from the
+system on the Pi.

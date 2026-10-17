@@ -1,3 +1,4 @@
+SPDX-License-Identifier: CC-BY-4.0
 # Der Stack
 @chain Szenen|Kern|fb0|Kernel|GPU|TV
 Von oben nach unten:
