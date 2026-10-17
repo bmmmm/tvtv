@@ -12,7 +12,7 @@ static char base[512];
 
 int asset_init(void) {
     ssize_t n = readlink("/proc/self/exe", base, sizeof base - 1);
-    if (n <= 0) return -1;
+    if (n <= 0 || n >= (ssize_t)sizeof base - 1) return -1; // error or possibly truncated
     base[n] = 0;
     char *slash = strrchr(base, '/');
     if (slash) slash[1] = 0;

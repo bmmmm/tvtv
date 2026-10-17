@@ -9,10 +9,13 @@ OBJS := $(SRCS:%.c=build/%.o)
 
 all: bc101 fonts/big.psf fonts/small.psf
 
+# A failed recipe (e.g. an interrupted zcat) must not leave a half-written target.
+.DELETE_ON_ERROR:
+
 bc101: $(OBJS)
 	$(CC) -o $@ $^ $(LDLIBS)
 
-build/%.o: %.c src/core.h
+build/%.o: %.c src/core.h Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -Isrc -c -o $@ $<
 

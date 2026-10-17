@@ -5,21 +5,40 @@ set -euo pipefail
 
 HOST="${BC101_HOST:-tvtv-deploy}"
 DIR="tvtv" # relative to the remote home
-UNIT=/etc/systemd/system/bc101.service
 cd "$(dirname "$0")/.."
 
+case "${1:-}" in
+  "") ;;
+  -n)
+    rsync -ani --delete src slides system Makefile "$HOST:$DIR/"
+    exit 0
+    ;;
+  *)
+    echo "usage: $0 [-n]" >&2
+    exit 2
+    ;;
+esac
+
 # Only tracked parts travel; build/, fonts/ and the binary stay on the Pi.
-if [[ "${1:-}" == "-n" ]]; then
-  rsync -ani --delete src slides system Makefile "$HOST:$DIR/"
-  exit 0
-fi
 rsync -a --delete src slides system Makefile "$HOST:$DIR/"
 
-ssh "$HOST" "set -e; cd $DIR; make
-  if ! cmp -s system/bc101.service $UNIT; then
-    sudo tee $UNIT >/dev/null < system/bc101.service
-    sudo systemctl daemon-reload
-    sudo systemctl enable bc101
-  fi
-  sudo systemctl restart bc101
-  systemctl is-active bc101"
+ssh "$HOST" bash -s -- "$DIR" <<'REMOTE'
+set -euo pipefail
+cd "$HOME/$1"
+make
+unit=/etc/systemd/system/bc101.service
+sed "s|@BC101_DIR@|$PWD|g" system/bc101.service > build/bc101.service
+if ! cmp -s build/bc101.service "$unit"; then
+  sudo tee "$unit" >/dev/null < build/bc101.service
+  sudo systemctl daemon-reload
+  sudo systemctl enable bc101
+fi
+sudo systemctl restart bc101
+pid=$(systemctl show -p MainPID --value bc101)
+sleep 3
+if [[ "$(systemctl is-active bc101)" != active || "$(systemctl show -p MainPID --value bc101)" != "$pid" ]]; then
+  echo "bc101 did not stay up (journalctl -u bc101)" >&2
+  exit 1
+fi
+echo "bc101 running, pid $pid"
+REMOTE

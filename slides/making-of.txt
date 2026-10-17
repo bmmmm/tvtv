@@ -81,8 +81,8 @@ baut alles in gut einer Minute.
 @rainbow
 Peace, Love & Pixel.
 
-Diese Folien liegen als Textdatei auf
-dem Pi und lassen sich jederzeit ändern.
+Diese Folien sind Textdateien im Git-
+Repo und kommen per deploy.sh auf den Pi.
 
 
            bitcircus101.de

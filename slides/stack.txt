@@ -126,20 +126,19 @@ Ein Kreis hat hier 256 statt 360 Grad.
 Dann läuft "& 255" von selbst im Kreis:
 > v = st[(x + t) & 255];
 # Konsole aus, Bild an
-@term sudo openvt -c 1 -s -f -- bc101
-Gestartet wird per SSH auf tty1, der
-Konsole am Fernseher:
-> sudo openvt -c 1 -s -f -- bc101
+@term sudo systemctl restart bc101
+Beim Booten startet systemd die Show auf
+tty1, der Konsole am Fernseher:
+> sudo systemctl restart bc101
 Dann schaltet das Programm den Text ab:
 > ioctl(0, KDSETMODE, KD_GRAPHICS);
-Beim Beenden kommt KD_TEXT zurück und
-die Konsole erscheint wieder.
+Beim Beenden stellt es KD_TEXT wieder
+her, der Textmodus ist zurück.
 # Ende
 @rainbow
-Quellcode und Folien liegen auf dem Pi:
-  ~deploy/tvtv/src/
-  ~deploy/tvtv/slides/
-und im Git-Repo "tvtv".
+Quellcode und Folien liegen im Git-Repo
+"tvtv". scripts/deploy.sh bringt sie
+nach ~deploy/tvtv/ auf den Pi.
 
 Peace, Love & Pointer.
 

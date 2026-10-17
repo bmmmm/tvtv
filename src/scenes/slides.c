@@ -56,8 +56,9 @@ static void copy(char *dst, const char *src, size_t n) {
 static void load(Deck *d) {
     if (d->loaded) return;
     d->loaded = 1;
-    FILE *f = fopen(asset(d->path), "r");
-    if (!f) perror(asset(d->path));
+    const char *path = asset(d->path);
+    FILE *f = fopen(path, "r");
+    if (!f) perror(path);
     char ln[256];
     while (f && fgets(ln, sizeof ln, f)) {
         ln[strcspn(ln, "\r\n")] = 0;
