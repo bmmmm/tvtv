@@ -1,0 +1,146 @@
+# Der Stack
+@chain Szenen|Kern|fb0|Kernel|GPU|TV
+Von oben nach unten:
+ Szenen   16 Dateien s_*.c
+ Kern     core.c und main.c
+ fb0      der Bildspeicher als Gerät
+ Kernel   Linux 6.18, Treiber vc4
+ GPU      VideoCore IV im Pi
+ TV       Composite, PAL, 288 Zeilen
+
+Jede Schicht redet nur mit der nächsten.
+# Warum C?
+@cpu
+C entstand 1972 zusammen mit Unix und
+läuft auf fast jedem Chip.
+
+Kein Interpreter, kein Garbage Collector:
+gcc übersetzt direkt in ARM-Maschinencode.
+Was im Code steht, tut die CPU - ohne
+versteckte Arbeit dazwischen.
+
+Der Balken unten misst live, wie viel CPU
+diese Folien gerade brauchen.
+# Gebaut auf dem Pi
+@term gcc -O2 -Wall -o bc101 *.c -lm
+Der Mac schickt nur Quelltext per scp,
+übersetzt wird direkt auf dem Pi:
+> gcc -O2 -Wall -o bc101 *.c -lm
+ -O2    optimieren
+ -Wall  alle Warnungen zeigen
+ -lm    Mathe-Bibliothek (sinf, sqrtf)
+
+Ergebnis: eine einzige Datei, 95 KB.
+Bibliotheken: libc, libm und libarmmem.
+# Eine Szene
+@chain init|frame|frame|frame
+> typedef struct {
+>     const char *name;
+>     float dur;
+>     void (*init)(void);
+>     void (*frame)(float t, float dt);
+> } Scene;
+Vereinfacht: init() bereitet vor,
+frame() malt ein Bild für Zeitpunkt t.
+Mehr muss eine Szene nicht können.
+# Die Hauptschleife
+@chain frame|fade|blit|sleep
+50-mal pro Sekunde:
+ 1. frame  Szene malt in buf[]
+ 2. fade   ein- und ausblenden
+ 3. blit   buf[] in den Bildspeicher
+ 4. sleep  warten auf den 20-ms-Takt
+
+Ist ein Bild zu langsam, folgt das
+nächste sofort - der Takt holt auf.
+Pro Szene loggt das Programm die fps.
+# Puffer: 1D wird 2D
+@buf1d
+Der Speicher kennt keine Zeilen, nur
+eine lange Reihe von Zahlen:
+> uint16_t buf[360 * 288];
+Pixel (x, y) liegt an Stelle
+> i = y * 360 + x
+
+Unten ein Puffer mit 8 Pixeln Breite:
+Läuft i weiter, springt es am Zeilen-
+ende in die nächste Zeile.
+# Malen, dann zeigen
+@double
+Würden die Szenen direkt in den Bild-
+speicher malen, sähe man halbfertige
+Bilder flimmern.
+
+Darum wird erst unsichtbar in buf[]
+gemalt. Ist das Bild fertig, wird es am
+Stück nach /dev/fb0 kopiert.
+
+Das heißt Double Buffering.
+# Ein Pixel wird zwei
+@blit
+Gerechnet wird in 360x288, der Fernseher
+bekommt 720x288. Beim Kopieren wird
+jedes Pixel einfach verdoppelt:
+> dst[x] = src[x] | (src[x] << 16);
+
+Zwei 16-Bit-Pixel passen in ein 32-Bit-
+Wort: ein Schreibzugriff, zwei Pixel.
+# Farbe in 16 Bit
+@rgb565
+Eine Farbe ist 16 Bit = 2 Byte groß:
+> RRRRRGGGGGGBBBBB
+5 Bit Rot, 6 Bit Grün, 5 Bit Blau:
+65.536 Farben. Grün bekommt ein Bit
+mehr, weil das Auge dort am feinsten
+unterscheidet.
+> ((r&0xF8)<<8)|((g&0xFC)<<3)|(b>>3)
+# Paletten-Puffer
+@palette
+Ein Paletten-Puffer speichert keine
+Farbe, sondern eine Nummer 0 bis 255.
+Die Palette übersetzt Nummer in Farbe.
+
+Klassischer Trick (Palette Cycling):
+Verschiebt man nur die Palette, ändern
+sich alle Farben auf einmal.
+Unten: Die Zahlen bleiben gleich, nur
+die Palette wandert.
+# Der Feuer-Puffer
+@heat
+Das Feuer ist ein Puffer voller Hitze-
+werte: 0 ist kalt, 36 weißglühend.
+
+Jeder Wert wandert pro Bild eine Zeile
+nach oben, verliert zufällig etwas und
+rutscht zur Seite. Die Farbe kommt aus
+einer Palette mit 37 Einträgen.
+
+Unten das Prinzip, als Zahlen.
+# Tabellen statt Rechnen
+@sine
+sinf() für jedes Pixel wäre zu teuer.
+Also einmal 256 Werte vorberechnen:
+> st[i] = 127 * sinf(i * 2*PI / 256);
+
+Ein Kreis hat hier 256 statt 360 Grad.
+Dann läuft "& 255" von selbst im Kreis:
+> v = st[(x + t) & 255];
+# Konsole aus, Bild an
+@term sudo openvt -c 1 -s -f -- bc101
+Gestartet wird per SSH auf tty1, der
+Konsole am Fernseher:
+> sudo openvt -c 1 -s -f -- bc101
+Dann schaltet das Programm den Text ab:
+> ioctl(0, KDSETMODE, KD_GRAPHICS);
+Beim Beenden kommt KD_TEXT zurück und
+die Konsole erscheint wieder.
+# Ende
+@rainbow
+Quellcode und Folien liegen auf dem Pi:
+  ~deploy/tvtv/src/
+  ~deploy/tvtv/stack.txt
+
+Peace, Love & Pointer.
+
+
+           bitcircus101.de

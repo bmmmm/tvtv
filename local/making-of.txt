@@ -1,0 +1,88 @@
+# Making-of
+@pipe
+Diese Show läuft auf einem Raspberry Pi 1
+von 2012: ein Kern, 700 MHz, 512 MB RAM.
+
+Programmiert hat sie Claude, eine KI von
+Anthropic, per SSH vom Mac aus.
+
+Es gibt keine einzige Bilddatei:
+Jedes Pixel wird live berechnet.
+# Erst Schwarzweiß
+@bars
+Am Anfang war das Bild farblos: Der Pi
+sendete NTSC, der Fernseher erwartet PAL.
+Eine Zeile in cmdline.txt hat es gelöst:
+   vc4.tv_norm=PAL
+
+Danach flackerte der Text: 576 Zeilen im
+Zeilensprung (interlaced). Jetzt läuft
+720x288 progressiv mit 50 Bildern/s.
+# Direkt in den Speicher
+@pixels
+Kein Desktop, kein Fenster: Ein Programm
+in C schreibt direkt in /dev/fb0, den
+Bildspeicher des Pi.
+
+720x288 Pixel, 16 Bit Farbe (RGB565).
+Gerechnet wird nur in 360x288 - jedes
+Pixel wird doppelt breit ausgegeben.
+Halbe Arbeit, fast quadratische Pixel.
+# 50 Bilder pro Sekunde
+@fps
+Für jedes Bild bleiben 20 Millisekunden.
+Für einen Pi 1 ist das knapp.
+
+Der Trick: Teures nur einmal rechnen.
+Sinus, Winkel und Abstand jedes Pixels
+liegen fertig in Tabellen. Pro Bild wird
+nur nachgeschlagen und addiert -
+wie in den Demos der 90er.
+# Plasma & Tunnel
+@plasma
+Plasma: Vier Sinuswellen addiert, die
+Summe wählt eine Farbe aus der Palette.
+Die Palette dreht sich mit.
+
+Tunnel: Winkel und Abstand zur Mitte
+werden Koordinaten einer Textur.
+
+Kaleidoskop: Der Winkel wird in 8 Keile
+gefaltet und gespiegelt.
+# Feuer
+@fire
+Das Feuer stammt aus PlayStation-Doom
+(1995): Die unterste Zeile glüht. Jeder
+Punkt wandert nach oben, kühlt zufällig
+ab und driftet zur Seite.
+
+Bei uns sind die Buchstaben selbst
+Glutquellen - der Schriftzug brennt.
+# Explosion & Jonglage
+@particles
+Jedes Pixel des Schriftzugs wird ein
+Teilchen mit Tempo und Schwerkraft. Es
+prallt am Boden ab, dann zieht eine
+Feder alles zurück an seinen Platz.
+
+Der Clown jongliert eine 5-Ball-Kaskade:
+Jeder Wurf ist eine Parabel.
+# Baukasten
+@list
+Jede Szene ist eine eigene Datei mit
+zwei Funktionen: init() und frame(t).
+Ein Sequencer spielt sie nacheinander
+und blendet weich über.
+
+Die Schrift ist Terminus aus der Linux-
+Konsole. Rund 2000 Zeilen C - der Pi
+baut alles in gut einer Minute.
+# Danke!
+@rainbow
+Peace, Love & Pixel.
+
+Diese Folien liegen als Textdatei auf
+dem Pi und lassen sich jederzeit ändern.
+
+
+           bitcircus101.de
