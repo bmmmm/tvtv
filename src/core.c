@@ -3,9 +3,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 uint16_t buf[W * H];
 Font fbig, fsml;
+
+static char base[512];
+
+int asset_init(void) {
+    ssize_t n = readlink("/proc/self/exe", base, sizeof base - 1);
+    if (n <= 0) return -1;
+    base[n] = 0;
+    char *slash = strrchr(base, '/');
+    if (slash) slash[1] = 0;
+    return 0;
+}
+
+const char *asset(const char *rel) {
+    static char path[1024];
+    snprintf(path, sizeof path, "%s%s", base, rel);
+    return path;
+}
 
 static void set_map(Font *f, int *seen, uint32_t cp, int g) {
     if (cp < 256 && !seen[cp] && g < f->n) {

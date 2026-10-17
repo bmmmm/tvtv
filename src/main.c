@@ -1,5 +1,6 @@
 // bc101 demo sequencer: plays scenes in a loop on a 720x288 RGB565 fbdev.
-// usage: anim [-l] [-t seconds] [scene ...]
+// usage: bc101 [-l] [-t seconds] [scene ...]
+// Fonts and slides are looked up next to the executable (fonts/, slides/).
 #include "core.h"
 
 #include <fcntl.h>
@@ -14,7 +15,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define FONT_DIR "/home/deploy/tvtv/"
 #define FADE 0.4f
 
 extern const Scene scene_boot, scene_bounce, scene_explode, scene_plasma, scene_stars, scene_tunnel,
@@ -64,8 +64,12 @@ int main(int argc, char **argv) {
     if (!nsel)
         for (int k = 0; k < NALL; k++) sel[nsel++] = all[k];
 
-    if (load_font(&fbig, FONT_DIR "big.psf") || load_font(&fsml, FONT_DIR "small.psf")) {
-        fprintf(stderr, "font load failed in %s\n", FONT_DIR);
+    if (asset_init()) {
+        perror("/proc/self/exe");
+        return 1;
+    }
+    if (load_font(&fbig, asset("fonts/big.psf")) || load_font(&fsml, asset("fonts/small.psf"))) {
+        fprintf(stderr, "font load failed in %s\n", asset("fonts/"));
         return 1;
     }
 

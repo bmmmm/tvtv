@@ -24,6 +24,8 @@ typedef struct {
 extern uint16_t buf[W * H];
 extern Font fbig, fsml; // 16x32 and 8x16 Terminus Bold
 
+int asset_init(void);                  // remembers the executable's directory
+const char *asset(const char *rel);    // path relative to it; valid until the next call
 int load_font(Font *f, const char *path);
 void utf8_to_latin1(char *s); // in place; unmappable code points become '?'
 

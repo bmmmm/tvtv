@@ -1,3 +1,5 @@
 .claude/
-local/anim
-local/bc101
+# build outputs (made on the Pi by `make`)
+/bc101
+/build/
+/fonts/

@@ -10,7 +10,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SLIDE_DIR "/home/deploy/tvtv/"
 #define SLIDE_T 12.0f
 #define MAXS 16
 #define MAXL 10
@@ -23,12 +22,12 @@ typedef struct {
 } Slide;
 
 typedef struct {
-    const char *path;
+    const char *path; // relative to the executable
     Slide s[MAXS];
     int n, loaded;
 } Deck;
 
-static Deck making = {SLIDE_DIR "making-of.txt"}, stack = {SLIDE_DIR "stack.txt"};
+static Deck making = {"slides/making-of.txt"}, stack = {"slides/stack.txt"};
 static Deck *cur = &making;
 static int8_t st[256];
 
@@ -57,7 +56,8 @@ static void copy(char *dst, const char *src, size_t n) {
 static void load(Deck *d) {
     if (d->loaded) return;
     d->loaded = 1;
-    FILE *f = fopen(d->path, "r");
+    FILE *f = fopen(asset(d->path), "r");
+    if (!f) perror(asset(d->path));
     char ln[256];
     while (f && fgets(ln, sizeof ln, f)) {
         ln[strcspn(ln, "\r\n")] = 0;
