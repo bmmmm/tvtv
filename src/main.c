@@ -20,12 +20,12 @@
 
 extern const Scene scene_boot, scene_bounce, scene_explode, scene_plasma, scene_stars, scene_tunnel,
     scene_matrix, scene_juggle, scene_fire, scene_glitch, scene_outrun, scene_flowers, scene_rainbow,
-    scene_kaleido, scene_hippie, scene_explain, scene_stack, scene_testcard;
+    scene_kaleido, scene_hippie, scene_crt, scene_bernd, scene_explain, scene_stack, scene_testcard;
 
 static const Scene *all[] = {
     &scene_boot, &scene_flowers, &scene_bounce, &scene_rainbow, &scene_explode, &scene_kaleido,
     &scene_plasma, &scene_stars, &scene_hippie, &scene_tunnel, &scene_matrix, &scene_juggle,
-    &scene_fire, &scene_glitch, &scene_outrun,
+    &scene_fire, &scene_glitch, &scene_outrun, &scene_crt, &scene_bernd,
 };
 #define NALL (int)(sizeof all / sizeof all[0])
 

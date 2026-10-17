@@ -76,7 +76,7 @@ Ein Sequencer spielt sie nacheinander
 und blendet weich über.
 
 Die Schrift ist Terminus aus der Linux-
-Konsole. Rund 2000 Zeilen C - der Pi
+Konsole. Rund 2400 Zeilen C - der Pi
 baut alles in gut einer Minute.
 # Danke!
 @rainbow

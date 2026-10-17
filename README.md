@@ -4,8 +4,9 @@ A demoscene-style show for **bitcircus101**, running on a Raspberry Pi 1 Model B
 that feeds an old tube TV over composite video. Every pixel is computed live in
 C and written straight into the framebuffer — no X, no image files.
 
-15 scenes loop forever (plasma, tunnel, fire, juggling clown, flower power,
-rainbow, synthwave, …), plus two narrated slide decks that explain how it works.
+17 scenes loop forever (plasma, tunnel, fire, juggling clown, flower power,
+rainbow, synthwave, a 3D cathode ray tube, Bernd das Brot as the DVD logo, …),
+plus two narrated slide decks that explain how it works.
 
 ## Hardware
 

@@ -247,7 +247,7 @@ static void demo_particles(void) {
 
 static void demo_list(float t) {
     scroller("   boot  flowers  bounce  rainbow  explode  kaleido  plasma  stars  hippie  tunnel  "
-             "matrix  juggle  fire  glitch  outrun   ",
+             "matrix  juggle  fire  glitch  outrun  crt  bernd   ",
              t, SY + 18, 8);
 }
 

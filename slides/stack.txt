@@ -2,7 +2,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Der Stack
 @chain Szenen|Kern|fb0|Kernel|GPU|TV
 Von oben nach unten:
- Szenen   17 Dateien in src/scenes/
+ Szenen   19 Dateien in src/scenes/
  Kern     core.c und main.c
  fb0      der Bildspeicher als Gerät
  Kernel   Linux 6.18, Treiber vc4
