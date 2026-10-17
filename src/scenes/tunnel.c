@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Texture-mapped tunnel flight; "BC101" is stamped into the wall texture.
 #include "core.h"
 

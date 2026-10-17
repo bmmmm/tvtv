@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Slide decks (making-of, tech stack): text comes from UTF-8 data files, is typed out,
 // and each slide gets a live demo strip at the bottom. File format:
 //   # Title          starts a slide (max 22 chars)

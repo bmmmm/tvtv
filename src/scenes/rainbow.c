@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // A rainbow paints itself across the sky; "BC101" flies through with a nyan-style rainbow trail.
 #include "core.h"
 

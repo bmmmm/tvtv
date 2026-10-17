@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Fake retro BIOS boot that types itself out, then reveals the logo.
 #include "core.h"
 

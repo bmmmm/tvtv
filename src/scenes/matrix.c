@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Digital rain; drops that cross the hidden logo lock in place until "BC101" stands.
 #include "core.h"
 

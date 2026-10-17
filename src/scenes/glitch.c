@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // VHS/data-corruption look: RGB-split logo, slice tears, noise bursts, typed URL.
 #include "core.h"
 

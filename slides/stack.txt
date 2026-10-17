@@ -127,8 +127,8 @@ Dann läuft "& 255" von selbst im Kreis:
 > v = st[(x + t) & 255];
 # Konsole aus, Bild an
 @term sudo systemctl restart bc101
-Beim Booten startet systemd die Show auf
-tty1, der Konsole am Fernseher:
+systemd startet die Show auf tty1, der
+Konsole am Fernseher - beim Booten oder:
 > sudo systemctl restart bc101
 Dann schaltet das Programm den Text ab:
 > ioctl(0, KDSETMODE, KD_GRAPHICS);

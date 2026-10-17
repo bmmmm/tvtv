@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Eight-fold rainbow kaleidoscope with a spinning flower in the middle.
 #include "core.h"
 

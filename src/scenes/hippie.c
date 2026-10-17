@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Hypnotic rainbow spiral, rotating peace sign, tall wobbly 70s lettering.
 #include "core.h"
 

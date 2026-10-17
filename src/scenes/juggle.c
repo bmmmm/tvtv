@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // A stick-figure clown juggles the letters B-C-1-0-1 in a 5-ball cascade under the big top.
 #include "core.h"
 

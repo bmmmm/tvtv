@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Bouncing rainbow title over raster bars, sine scroller along the bottom.
 #include "core.h"
 

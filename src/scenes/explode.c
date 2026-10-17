@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Title trembles, bursts into pixel particles with a shockwave, then reassembles.
 #include "core.h"
 

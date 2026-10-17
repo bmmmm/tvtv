@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Overscan test card: numbered lines along every edge. Left/right numbers are in
 // framebuffer pixels (canvas x * 2), top/bottom numbers are in lines.
 #include "core.h"

@@ -9,7 +9,7 @@ OBJS := $(SRCS:%.c=build/%.o)
 
 all: bc101 fonts/big.psf fonts/small.psf
 
-# A failed recipe (e.g. an interrupted zcat) must not leave a half-written target.
+# A failed recipe (e.g. zcat on a corrupt .gz) must not leave a half-written target.
 .DELETE_ON_ERROR:
 
 bc101: $(OBJS)
@@ -19,11 +19,11 @@ build/%.o: %.c src/core.h Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -Isrc -c -o $@ $<
 
-fonts/big.psf: $(FONTSRC)/Lat15-TerminusBold32x16.psf.gz
+fonts/big.psf: $(FONTSRC)/Lat15-TerminusBold32x16.psf.gz Makefile
 	@mkdir -p fonts
 	zcat $< > $@
 
-fonts/small.psf: $(FONTSRC)/Lat15-TerminusBold16.psf.gz
+fonts/small.psf: $(FONTSRC)/Lat15-TerminusBold16.psf.gz Makefile
 	@mkdir -p fonts
 	zcat $< > $@
 

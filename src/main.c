@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // bc101 demo sequencer: plays scenes in a loop on a 720x288 RGB565 fbdev.
 // usage: bc101 [-l] [-t seconds] [scene ...]
 // Fonts and slides are looked up next to the executable (fonts/, slides/).

@@ -38,14 +38,16 @@ src/main.c        framebuffer setup, scene sequencer, fades, fps log
 src/scenes/*.c    one file per scene
 slides/*.txt      German text of the slide decks (data, not code)
 system/           systemd unit template that runs the show on tty1
-scripts/deploy.sh rsync to the Pi, build there, install unit, restart service
+tools/install.sh  on the Pi: make, install unit, restart, check it stays up
+tools/boot-report.sh  on the Pi: boot timing + network logs for analysis
+scripts/deploy.sh on the workstation: rsync to the Pi, then tools/install.sh
 scripts/setup-claude-identity.sh  git identity helper (wrapper into ~/ops)
 Makefile          builds bc101 and extracts the console fonts (run on the Pi)
 ```
 
 The canvas is 360x288 and every pixel is doubled horizontally on its way to the
 720x288 framebuffer — half the work, roughly square pixels. Fonts and slides are
-found next to the executable, and deploy.sh writes the install directory into
+found next to the executable, and install.sh writes the install directory into
 the unit, so nothing depends on a particular user or home path.
 
 ## Workflow
@@ -53,11 +55,15 @@ the unit, so nothing depends on a particular user or home path.
 The repo is the source of truth; the Pi only receives copies.
 
 ```sh
-scripts/deploy.sh -n   # dry run: what would change on the Pi
+scripts/deploy.sh -n   # dry run: file changes and the unit diff
 scripts/deploy.sh      # sync, make (incremental), restart bc101.service
 ```
 
 Deploy fails (exit 1) if the show does not stay up for 3 s after the restart.
+
+Slow boot? On the Pi run `sudo ~deploy/tvtv/tools/boot-report.sh`; it
+writes a fresh `/tmp/boot-report.XXXXXX` and prints its name (timings,
+NetworkManager and Wi-Fi logs; password-like values redacted).
 
 `BC101_HOST` overrides the SSH host (default `tvtv-deploy`, files land in
 `~/tvtv` there). A full build takes over a minute on the Pi 1; touching one
@@ -99,3 +105,8 @@ plain text         body, max 44 characters per line, max 10 lines
 
 Demos: `pipe chain bars pixels fps plasma fire particles list rainbow buf1d
 double blit palette heat rgb565 sine term cpu` (see `src/scenes/slides.c`).
+
+## License
+
+GPL-3.0-or-later, see [LICENSE](LICENSE). The Terminus console fonts are not
+bundled; `make` extracts them from the system on the Pi.

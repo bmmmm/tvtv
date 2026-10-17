@@ -4,7 +4,7 @@ After=systemd-user-sessions.service getty@tty1.service
 Conflicts=getty@tty1.service
 
 [Service]
-# scripts/deploy.sh fills in the install directory before installing this unit.
+# tools/install.sh fills in the install directory before installing this unit.
 ExecStart=@BC101_DIR@/bc101
 StandardInput=tty
 StandardOutput=tty

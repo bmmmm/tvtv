@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Doom-style fire at half resolution; the title itself burns, then the fire dies down.
 #include "core.h"
 

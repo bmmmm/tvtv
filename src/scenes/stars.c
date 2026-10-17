@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Accelerating warp starfield with a slow roll; the URL zooms in from deep space.
 #include "core.h"
 

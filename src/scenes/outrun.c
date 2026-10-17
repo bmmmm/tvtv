@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Synthwave: striped sunset, scrolling neon grid, rotating 3D point-cloud "BC101".
 #include "core.h"
 

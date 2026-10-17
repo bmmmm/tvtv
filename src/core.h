@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Shared canvas, fonts and drawing helpers for the bc101 demo scenes.
 #pragma once
 #include <math.h>

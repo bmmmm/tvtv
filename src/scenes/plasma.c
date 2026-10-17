@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Old-school sine plasma with a huge "bc101" cut out of it (inverted palette, outline, shadow).
 #include "core.h"
 

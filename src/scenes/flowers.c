@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Flower power: flowers sprout and bloom with spinning rainbow petals under a rotating sunburst.
 #include "core.h"
 
