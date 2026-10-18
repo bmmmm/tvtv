@@ -1,5 +1,8 @@
 .claude/
 # build outputs (made on the Pi by `make`)
 /bc101
+/tvctl
 /build/
 /fonts/
+# uploaded visuals are device state, not source (tools/tv-dispatch)
+/visuals/

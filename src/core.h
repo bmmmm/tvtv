@@ -2,6 +2,7 @@
 // Shared canvas, fonts and drawing helpers for the bc101 demo scenes.
 #pragma once
 #include <math.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #define W 360

@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The remote's SSH entry point. sshd runs it as ForceCommand for user tv (system/sshd-tv.conf), so a
+# key for that user can do exactly what is listed here and nothing else:
+#   ssh tv                        the zapper (a terminal is needed: ssh -t from scripts)
+#   ssh tv 7  |  ssh tv 07        switch to channel 7 and hold it
+#   ssh tv status | list | log | next | auto | help
+#   ssh tv tune <ch|name>  |  hold <ch|name>  |  play <ch|name> [seconds]
+#   ssh tv upload <name> < name.c  |  rm <name>  |  fetch <name>        admin keys only
+# Roles: a key's line in /etc/tvtv/authorized_keys ends in "<who> <op|admin>" (tools/tv-keys.sh);
+# sshd tells us which key logged in (ExposeAuthInfo). Run by hand, e.g. from the console as user tv,
+# the command comes from the arguments and TVTV_ROLE/TVTV_WHO may set the role.
+# Uploads: the file must be C that defines `const Scene scene_<name>`; it is built, run offscreen
+# through its whole length (tools/preview.c bench), and only then does the show restart on the new
+# binary. If the show does not come back, the previous binary is put back and systemd restarts it.
+set -euo pipefail
+
+TVTV_HOME=${TVTV_HOME:-/opt/tvtv}
+TVTV_KEYS=${TVTV_KEYS:-/etc/tvtv/authorized_keys}
+TVTV_SOCK=${TVTV_SOCK:-/run/bc101/ctl}
+BIN=$TVTV_HOME/bc101  # the show: only for -l (the channel table)
+CTL=$TVTV_HOME/tvctl  # the client, built without scene code: an upload cannot break it
+MAX_UPLOAD=262144 # bytes of C per visual
+MAX_VISUALS=32    # channels 30..61
+BUILD_TIMEOUT=900 # a full build takes over a minute on the Pi 1
+SMOKE_TIMEOUT=180
+NAME_RE='^[a-z][a-z0-9_]{0,15}$'
+
+who=local
+role=op
+
+log() { logger -t tvtv -p auth.info -- "$who($role): $*" 2>/dev/null || true; }
+
+die() { # die <rc> <message>
+  local rc=$1
+  shift
+  echo "tv: $*" >&2
+  log "$* (rc $rc)"
+  exit "$rc"
+}
+
+identify() {
+  if [[ -n ${SSH_USER_AUTH:-} && -r ${SSH_USER_AUTH} ]]; then
+    # sshd wrote the key that got us in; its line in the keys file names the person and the role.
+    local method blob found
+    read -r method _ blob _ < "$SSH_USER_AUTH" || true
+    who=unknown
+    role=op
+    [[ ${method:-} == publickey && -n ${blob:-} ]] || return 0
+    found=$(awk -v b="$blob" '{ for (i = 1; i <= NF; i++) if ($i == b && i + 2 <= NF) { print $(i + 1), $(i + 2); exit } }' \
+      "$TVTV_KEYS" 2>/dev/null) || true
+    [[ -n $found ]] || return 0
+    who=${found% *}
+    role=${found#* }
+    [[ $role == admin ]] || role=op
+  elif [[ -z ${SSH_CONNECTION:-} ]]; then
+    who=${TVTV_WHO:-local}
+    role=${TVTV_ROLE:-op}
+    [[ $role == admin ]] || role=op
+  fi
+}
+
+need_admin() { [[ $role == admin ]] || die 3 "$1 needs an admin key (you are $who, $role)"; }
+valid_name() { [[ $1 =~ $NAME_RE ]]; }
+valid_target() { [[ $1 =~ ^[0-9]{1,2}$ || $1 =~ $NAME_RE ]]; }
+valid_secs() { [[ $1 =~ ^[0-9]{1,4}(\.[0-9]{1,2})?$ ]]; }
+
+ctl() { "$CTL" -s "$TVTV_SOCK" "$@"; }
+
+# "loop", "extra", "visual", "standby" or empty for an unknown name; from the installed binary.
+kind_of() { "$BIN" -l 2>/dev/null | awk -v n="$1" '$2 == n { print $NF; exit }'; }
+
+help() {
+  cat <<'TXT'
+tvtv remote -- ssh tv [command]
+  (nothing)                 the zapper, a remote control in your terminal
+  7  or  07                 channel 7, held until next/auto
+  next | auto               skip | back to the loop
+  tune <ch|name>            hold a channel          play <ch|name> [seconds]   show it once
+  status | list | log       what is on | the channels | fps per channel
+admin keys:
+  upload <name> < name.c    a new visual (channel 30+), C that defines const Scene scene_<name>
+  rm <name> | fetch <name>  delete | download the source
+TXT
+}
+
+# ---------- building ----------
+
+make_q() { # make_q <target>: quiet make with a time limit; the log goes to stderr on failure
+  local out
+  out=$(mktemp)
+  if ! timeout "$BUILD_TIMEOUT" make -s -C "$TVTV_HOME" "$1" > "$out" 2>&1; then
+    echo "tv: build failed:" >&2
+    grep -v "^make" "$out" | tail -n 25 >&2
+    rm -f "$out"
+    return 1
+  fi
+  rm -f "$out"
+}
+
+# Renders the whole visual offscreen with the preview tool: a crash, a hang or absurd frame times
+# end here, not on the tube. Limits: virtual memory 256 MB, no files bigger than 2 MB, 3 minutes.
+smoke() {
+  local name=$1 line avg
+  echo "tv: test run of $name ..." >&2
+  # shellcheck disable=SC2016 # the inner $1 is for the inner bash
+  if ! line=$(cd "$TVTV_HOME" && timeout "$SMOKE_TIMEOUT" nice -n 10 bash -c \
+    'ulimit -v 262144 -f 4096 2>/dev/null; exec build/preview -f fonts "$1" bench 40' _ "$name" 2>&1); then
+    echo "tv: $name failed its test run: ${line:-crashed}" >&2
+    return 1
+  fi
+  echo "tv: $line" >&2
+  avg=$(awk '{ print int($3) }' <<< "$line")
+  if [[ -n $avg ]] && ((avg > 60)); then
+    echo "tv: too slow for the Pi 1 (${avg} ms per frame, budget 20 ms)" >&2
+    return 1
+  fi
+}
+
+# Build the show binary, keep the running one as bc101.prev, restart on the new one and make sure
+# it answers. On failure the previous binary is restored (systemd then restarts it if needed).
+go_live() {
+  local want have i dead
+  cd "$TVTV_HOME"
+  ln -f bc101 bc101.prev
+  if ! make_q bc101; then
+    rm -f bc101.prev
+    return 1
+  fi
+  want=$(stat -c %i bc101)
+  if ! ctl reexec > /dev/null 2>&1; then
+    echo "tv: built; the show is not running, it uses the new build when it starts" >&2
+    rm -f bc101.prev
+    return 0
+  fi
+  # Up to 12 s for the new binary to answer; a show that stays silent for 3 s is dead (systemd
+  # would be restarting the broken binary), so the old one goes back right away.
+  dead=0
+  for ((i = 0; i < 24; i++)); do
+    sleep 0.5
+    have=$(ctl status 2>/dev/null | sed -n 's/.* ino=\([0-9]*\).*/\1/p') || true
+    [[ ${have:-} == "$want" ]] && break
+    if [[ -z ${have:-} ]]; then ((++dead >= 6)) && break; else dead=0; fi
+  done
+  if [[ ${have:-} != "$want" ]]; then
+    echo "tv: the show did not come back on the new build -- rolling back" >&2
+    mv -f bc101.prev bc101
+    return 1
+  fi
+  rm -f bc101.prev
+  echo "tv: on air" >&2
+}
+
+upload() {
+  local name=$1 dst tmp size kind count
+  valid_name "$name" || die 2 "visual name: a-z, 0-9 and _, 1-16 chars, starting with a letter"
+  kind=$(kind_of "$name")
+  [[ -z $kind || $kind == visual ]] || die 2 "'$name' is a built-in scene"
+  mkdir -p "$TVTV_HOME/visuals"
+  dst=$TVTV_HOME/visuals/$name.c
+  if [[ ! -f $dst ]]; then
+    count=$(find "$TVTV_HOME/visuals" -maxdepth 1 -name '*.c' | wc -l)
+    ((count < MAX_VISUALS)) || die 1 "all $MAX_VISUALS visual channels are taken; rm one first"
+  fi
+  tmp=$(mktemp "$TVTV_HOME/visuals/.upload.XXXXXX")
+  trap 'rm -f "$tmp"' EXIT
+  head -c $((MAX_UPLOAD + 1)) > "$tmp"
+  size=$(stat -c %s "$tmp")
+  ((size > 0)) || die 2 "nothing on stdin -- use: ssh tv upload $name < $name.c"
+  ((size <= MAX_UPLOAD)) || die 2 "more than $MAX_UPLOAD bytes"
+  [[ $(LC_ALL=C tr -d '\011\012\015\040-\176\200-\377' < "$tmp" | wc -c) -eq 0 ]] || die 2 "not a text file"
+  grep -Eq "^const Scene scene_${name}[[:space:]]*=" "$tmp" ||
+    die 2 "the file must define: const Scene scene_$name = {\"$name\", seconds, init_or_NULL, frame, NULL};"
+  [[ -f $dst ]] && cp -p "$dst" "$dst.prev"
+  chmod 0644 "$tmp"
+  mv -f "$tmp" "$dst"
+  trap - EXIT
+  log "upload $name ($size bytes)"
+  if make_q build/preview && smoke "$name" && go_live; then
+    rm -f "$dst.prev"
+    log "upload $name: on air as channel $("$BIN" -l | awk -v n="$name" '$2 == n { print $1 }')"
+    echo "tv: $name is channel $("$BIN" -l | awk -v n="$name" '$2 == n { print $1 }')"
+    return 0
+  fi
+  # rejected: the previous version (if any) returns; the next build regenerates the table
+  if [[ -f $dst.prev ]]; then mv -f "$dst.prev" "$dst"; else mv -f "$dst" "$TVTV_HOME/visuals/.$name.c.rejected"; fi
+  die 1 "$name was not accepted"
+}
+
+remove() {
+  local name=$1
+  valid_name "$name" || die 2 "bad name"
+  [[ -f $TVTV_HOME/visuals/$name.c ]] || die 1 "no visual '$name' (ssh tv list)"
+  # if it is on air, move on first; the restart then has nothing to resume
+  if ctl status 2>/dev/null | grep -q "^scene=$name "; then
+    ctl next > /dev/null 2>&1 || true
+    sleep 1
+  fi
+  rm -f "$TVTV_HOME/visuals/$name.c" "$TVTV_HOME/build/visuals/$name.o"
+  log "rm $name"
+  go_live || die 1 "rebuilt without $name, but the show did not come back; it restarts on the previous build"
+  echo "tv: $name removed"
+}
+
+fetch() {
+  local name=$1
+  valid_name "$name" || die 2 "bad name"
+  [[ -f $TVTV_HOME/visuals/$name.c ]] || die 1 "no visual '$name'"
+  cat "$TVTV_HOME/visuals/$name.c"
+}
+
+# ---------- main ----------
+
+identify
+if [[ -n ${SSH_ORIGINAL_COMMAND+x} ]]; then cmd=$SSH_ORIGINAL_COMMAND; else cmd=$*; fi
+[[ ${#cmd} -le 80 ]] || die 2 "command too long"
+# Only plain words reach the case below: letters, digits, space, dot, underscore and dash.
+[[ $cmd =~ ^[A-Za-z0-9_.\ -]*$ ]] || die 2 "unsupported characters in command"
+a=()
+read -r -a a <<< "$cmd" || true
+case ${a[0]:-} in
+  "")
+    if [[ -t 0 && -t 1 ]]; then
+      log "zapper"
+      self=$(readlink -f "${BASH_SOURCE[0]}")
+      if [[ $role == admin ]]; then set -- --admin; else set --; fi
+      exec env TVTV_DISPATCH="$self" "$CTL" remote -s "$TVTV_SOCK" --name "$who" "$@"
+    fi
+    help
+    ;;
+  help | -h | --help) help ;;
+  status | list | log | ping) [[ ${#a[@]} -eq 1 ]] || die 2 "${a[0]} takes no arguments"; ctl "${a[0]}" ;;
+  next | auto) [[ ${#a[@]} -eq 1 ]] || die 2 "${a[0]} takes no arguments"; log "${a[0]}"; ctl "${a[0]}" ;;
+  [0-9] | [0-9][0-9]) [[ ${#a[@]} -eq 1 ]] || die 2 "a channel number stands alone"; log "tune ${a[0]}"; ctl tune "${a[0]}" ;;
+  tune | hold)
+    { [[ ${#a[@]} -eq 2 ]] && valid_target "${a[1]}"; } || die 2 "usage: ${a[0]} <channel|name>"
+    log "${a[0]} ${a[1]}"
+    ctl tune "${a[1]}"
+    ;;
+  play)
+    { [[ ${#a[@]} -ge 2 && ${#a[@]} -le 3 ]] && valid_target "${a[1]}"; } || die 2 "usage: play <channel|name> [seconds]"
+    [[ ${#a[@]} -eq 2 ]] || valid_secs "${a[2]}" || die 2 "seconds: a number up to 9999"
+    log "play ${a[*]:1}"
+    ctl play "${a[@]:1}"
+    ;;
+  upload) need_admin upload; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: upload <name> < name.c"; upload "${a[1]}" ;;
+  rm) need_admin rm; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: rm <name>"; remove "${a[1]}" ;;
+  fetch) need_admin fetch; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: fetch <name>"; fetch "${a[1]}" ;;
+  *) die 2 "unknown command '${a[0]}' -- ssh tv help" ;;
+esac
