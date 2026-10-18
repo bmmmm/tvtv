@@ -28,7 +28,7 @@ credits: "Code GPL-3.0-or-later, Texte CC-BY-4.0. Die Schrift ist Terminus, die 
   <span id="readout" class="readout"></span>
   <span class="budget" title="Bildzeit gegen das Budget von 20 ms"><i id="budget"></i></span>
 </div>
-<p class="hint">Leertaste pausiert, N springt weiter. Szenen mit · gehören nicht zur Schleife: die zwei Folien-Decks und die Testkarte. 2× ist die Pixelverdopplung, die der Pi auf dem Weg zum Fernseher macht, CRT das Glas und die Zeilen der Röhre; der Balken ist die Zeit, die dein Rechner pro Bild braucht, gemessen an den 20 ms des Pi.</p>
+<p class="hint">Leertaste pausiert, N springt weiter. Szenen mit · gehören nicht zur Schleife: die zwei Folien-Decks und die Testkarte. Das Gerät ist unserem nachgezeichnet, einem Toshiba C-500, ein 5-Zoll-Kofferfernseher aus den frühen Achtzigern. 2× ist die Pixelverdopplung, die der Pi auf dem Weg zum Fernseher macht, CRT das Glas und die Zeilen der Röhre; der Balken ist die Zeit, die dein Rechner pro Bild braucht, gemessen an den 20 ms des Pi.</p>
 ```
 
 ## Kurz gesagt

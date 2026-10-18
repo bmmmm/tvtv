@@ -36,7 +36,7 @@ margin:
 
 ## 1. A tube TV and a Pi from 2012
 
-bitcircus101 is a tech and creative space in Bonn. Somewhere in it stands an old tube TV, and next to it a Raspberry Pi 1 Model B, the 2012 board with one ARM1176 core at 700 MHz and 512 MB of RAM. A composite cable connects the two. The TV is not a monitor; it is a television, with everything that implies: PAL, 50 half-pictures per second, overscan that hides the edges, and a slight softness that forgives a lot.
+bitcircus101 is a tech and creative space in Bonn. Somewhere in it stands an old tube TV, a Toshiba C-500, a five-inch portable colour set from the early 1980s with a telescopic antenna and a tuning scale on the front, and next to it a Raspberry Pi 1 Model B, the 2012 board with one ARM1176 core at 700 MHz and 512 MB of RAM. A composite cable connects the two. The TV is not a monitor; it is a television, with everything that implies: PAL, 50 half-pictures per second, overscan that hides the edges, and a slight softness that forgives a lot.
 
 The idea was simple and a little stubborn: the TV should show something alive, and everything it shows should come from code. No video file, no slideshow of PNGs, no browser kiosk. A C program computes every pixel in real time and writes it into the framebuffer, the way a demo did on a home computer in the 1990s. Seventeen scenes loop forever: plasma, a tunnel, fire, a juggling clown, flower power, a synthwave horizon, a cathode ray tube in 3D that explains itself, Bernd das Brot bouncing like the DVD logo. Two slide decks, in German, explain how it all works, with live demos at the bottom of every slide.
 

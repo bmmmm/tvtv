@@ -24,7 +24,8 @@ Englisch) darüber, wie die Show funktioniert und wie sie entstand.
 |---|---|
 | Board | Raspberry Pi 1 Model B Rev 2: ein ARM1176-Kern, 700 MHz, 512 MB |
 | OS | Raspbian 13 (trixie), Kernel 6.18, KMS-Treiber `vc4` |
-| Video | Composite (Cinch) → S-Video-Adapter → Röhre, PAL |
+| Fernseher | Toshiba C-500, ein 5-Zoll-Kofferfernseher aus den frühen 1980ern, PAL |
+| Video | Composite (Cinch) → S-Video-Adapter → AV-Eingang des Geräts |
 | Netz | USB-WLAN-Stick, kein LAN-Kabel |
 
 ## Betrieb auf dem Pi

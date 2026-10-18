@@ -36,7 +36,7 @@ margin:
 
 ## 1. Ein Röhrenfernseher und ein Pi von 2012
 
-bitcircus101 ist ein Technik- und Kreativraum in Bonn. Irgendwo darin steht ein alter Röhrenfernseher, daneben ein Raspberry Pi 1 Model B, das Board von 2012 mit einem ARM1176-Kern bei 700 MHz und 512 MB RAM. Ein Composite-Kabel verbindet die beiden. Der Fernseher ist kein Monitor, er ist ein Fernseher, mit allem, was dazugehört: PAL, 50 Halbbilder pro Sekunde, ein Overscan, der die Ränder verschluckt, und eine leichte Weichheit, die viel verzeiht.
+bitcircus101 ist ein Technik- und Kreativraum in Bonn. Irgendwo darin steht ein alter Röhrenfernseher, ein Toshiba C-500, ein 5-Zoll-Kofferfernseher aus den frühen 1980ern mit Teleskopantenne und Senderskala auf der Front, daneben ein Raspberry Pi 1 Model B, das Board von 2012 mit einem ARM1176-Kern bei 700 MHz und 512 MB RAM. Ein Composite-Kabel verbindet die beiden. Der Fernseher ist kein Monitor, er ist ein Fernseher, mit allem, was dazugehört: PAL, 50 Halbbilder pro Sekunde, ein Overscan, der die Ränder verschluckt, und eine leichte Weichheit, die viel verzeiht.
 
 Die Idee war einfach und ein bisschen stur: Der Fernseher soll etwas Lebendiges zeigen, und alles, was er zeigt, soll aus Code kommen. Keine Videodatei, keine Diaschau aus PNGs, kein Browser-Kiosk. Ein C-Programm berechnet jedes Pixel in Echtzeit und schreibt es in den Framebuffer, so wie es eine Demo auf einem Heimcomputer der 90er tat. Siebzehn Szenen laufen in Schleife: Plasma, ein Tunnel, Feuer, ein jonglierender Clown, Flower Power, ein Synthwave-Horizont, eine Bildröhre in 3D, die sich selbst erklärt, Bernd das Brot, das wie das DVD-Logo durchs Bild springt. Zwei Folien-Decks erklären, wie alles funktioniert, mit Live-Demos am unteren Rand jeder Folie.
 

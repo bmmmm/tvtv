@@ -28,7 +28,7 @@ credits: "Code GPL-3.0-or-later, texts CC-BY-4.0. The letters are Terminus, the 
   <span id="readout" class="readout"></span>
   <span class="budget" title="frame time against the 20 ms budget"><i id="budget"></i></span>
 </div>
-<p class="hint">Space pauses, N skips ahead. Scenes marked · are not in the loop: the two slide decks (in German) and the test card. 2× is the pixel doubling the Pi does on the way to the TV, CRT the glass and the scan lines of the tube; the bar is the time your machine needs per frame, against the 20 ms the Pi has.</p>
+<p class="hint">Space pauses, N skips ahead. Scenes marked · are not in the loop: the two slide decks (in German) and the test card. The set is drawn after ours, a Toshiba C-500, a five-inch portable from the early eighties. 2× is the pixel doubling the Pi does on the way to the TV, CRT the glass and the scan lines of the tube; the bar is the time your machine needs per frame, against the 20 ms the Pi has.</p>
 ```
 
 ## In short

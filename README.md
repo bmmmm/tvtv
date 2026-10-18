@@ -23,7 +23,8 @@ on how the show works and how it was made.
 |---|---|
 | Board | Raspberry Pi 1 Model B Rev 2: one ARM1176 core, 700 MHz, 512 MB |
 | OS | Raspbian 13 (trixie), kernel 6.18, KMS driver `vc4` |
-| Video | composite (RCA) → S-Video adapter → CRT, PAL |
+| TV | Toshiba C-500, a five-inch portable colour set from the early 1980s, PAL |
+| Video | composite (RCA) → S-Video adapter → the set's AV input |
 | Network | USB Wi-Fi stick, no LAN cable |
 
 ## Running it on the Pi
