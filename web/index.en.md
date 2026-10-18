@@ -55,6 +55,8 @@ The TV needed some convincing first. The Pi speaks NTSC by default and the TV ex
 
 The show was programmed by Claude, an AI, over SSH from a Mac, without ever seeing the TV. That made the tools that render frames, probe motion and bundle whole scenes into a flipbook as important as the scenes themselves. The whitepaper tells that story.
 
+Members steer the show over SSH: `ssh zapper` opens a remote control drawn in the terminal, every scene has a channel number, and a scene in C can be uploaded to become a channel of its own, built, test-run offscreen and swapped in with a rollback. The show runs in a sandbox, as a user that can do nothing else.
+
 ## Read on
 
 ::: {.cards}

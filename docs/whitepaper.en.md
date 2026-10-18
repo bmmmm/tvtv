@@ -33,6 +33,7 @@ margin:
 - Measured, not guessed: the sequencer logs the frame rate and the worst frame of every scene on the Pi, and a bench tool does the same off-line.
 - The show was written by an AI over SSH, without ever seeing the screen. The tools that made that possible, an offscreen renderer, motion probes, a self-contained flipbook and a deploy that checks the show stays up, are the part worth copying.
 - The same C code runs in the browser, compiled to WebAssembly, on the project website.
+- Members steer the show over SSH: `ssh zapper` is a remote control drawn in the terminal, every scene has a channel number, and scenes in C can be uploaded, built, test-run offscreen and swapped in with a rollback. The show runs in a sandbox, as a user that can do nothing else.
 
 ## 1. A tube TV and a Pi from 2012
 
@@ -98,7 +99,7 @@ That is the whole interface. `init()` runs once when the scene starts and precom
 
 The sequencer in `main.c` is a loop with four steps: the scene draws into the canvas, the fade scales the picture at the start and end of a scene, the blit copies the canvas into the framebuffer, and a sleep waits for the next 20 ms tick. The tick is an absolute time, not a relative delay: the program computes when the next frame is due and sleeps until then with `clock_nanosleep` and `TIMER_ABSTIME`, so a frame that finishes early does not drift the schedule. A frame that finishes late is followed by the next one immediately, and only when the program falls more than 100 ms behind does it give up and restart the schedule from now. The time step handed to a scene is capped at 50 ms, so a hiccup never makes a particle jump across the screen.
 
-Every scene gets a line in `/tmp/anim.log` when it ends: its average frame rate and its worst frame in milliseconds. Those two numbers are the whole performance story of the show, and chapter 5 is about them.
+Every scene gets a line in `/run/bc101/anim.log` when it ends: its average frame rate and its worst frame in milliseconds. Those two numbers are the whole performance story of the show, and chapter 5 is about them.
 
 ### One pixel becomes two
 
@@ -175,7 +176,7 @@ The first is the log the sequencer writes on the Pi: average frames per second a
 The second instrument is `build/preview ... bench`, which renders a given number of frames off-line and reports the average and the worst. On a workstation its numbers say nothing about the Pi, they are 20 to 50 times smaller, but as a ratio between two versions of a scene they say everything: if a change doubles the frame time on the Mac, it doubles it on the Pi too.
 
 <!-- A table with every scene's fps and worst frame from a full run of the show on the Pi
-     goes here (cat /tmp/anim.log after one loop). -->
+     goes here (cat /run/bc101/anim.log after one loop). -->
 
 Two more numbers describe the program. The whole thing is about 2,500 lines of C that compile to a 95 KB executable linked against nothing but the C library, the maths library and the Pi's memory routines. A full build takes a little over a minute on the Pi 1; touching one scene rebuilds in about six seconds, because `make` only recompiles what changed.
 
@@ -197,7 +198,7 @@ One detail shows how literal such tools have to be. The renderer samples each fr
 
 ### Deploy that checks itself
 
-The repository is the source of truth; the Pi only ever receives copies. `scripts/deploy.sh` syncs the sources with `rsync`, then runs `tools/install.sh` on the Pi, which builds, writes the install directory into the systemd unit, enables and restarts the service, and then watches it for three seconds. If the show is not still running with the same process ID after that, the deploy fails. A scene that crashes on the Pi but not on the Mac is caught at deploy time, not the next morning.
+The repository is the source of truth; the Pi only ever receives copies. `scripts/deploy.sh` syncs the sources with `rsync` and installs the systemd unit it renders itself, then runs `tools/install.sh` on the Pi, which builds as the service user, enables and restarts the service, and then watches it for three seconds. If the show is not still running with the same process ID after that, the deploy fails. A scene that crashes on the Pi but not on the Mac is caught at deploy time, not the next morning.
 
 The build itself learned a lesson the hard way. A reboot in the middle of `make` once left a zero-byte object file with a fresh timestamp; `make` took it for current and the link failed with an undefined reference. Since then every target is written to a temporary name and renamed, and `.DELETE_ON_ERROR` removes half-written files when a recipe fails.
 
@@ -209,7 +210,19 @@ The website runs the show with the real scene code. A small shim replaces the fr
 
 Every push builds the whole website on GitHub's runners with the same `make site` a developer runs locally: the WebAssembly module, both flipbooks, this paper as HTML and PDF, the figures. A full-history secret scan and `shellcheck` over the scripts complete the set. Pushes to `main` deploy to GitHub Pages.
 
-## 7. Making-of with an AI
+## 7. The remote: a channel number for every scene
+
+A show in a shared space needs a way to say "that one, now". The remote control is the member-facing side of tvtv, and it is deliberately not an app: it is `ssh zapper@<the pi>`. With a terminal, that opens the zapper, a remote control drawn in text: LED digits for the channel, the programme grid, a progress bar, the keys a TV set would have. With a command it is one shot: `ssh zapper 7` holds channel 7, `next` skips, `auto` returns to the loop, `play testcard 30` shows something once. It works from a phone's SSH app as well as from a laptop.
+
+Every scene has a channel number: 00 is standby, a black picture that keeps the service running; 01 to 17 are the loop in play order; 20 to 22 the extras; 30 and up are *visuals*, scenes that members upload. Behind the numbers is a small control socket in the sequencer. Once per frame it polls a Unix socket for a line of text and answers with `ok` or `err`; `status`, `list` and `log` read, `tune`, `play`, `next` and `auto` change what happens after the current fade. Nothing is interrupted mid-frame: a change is a request that the sequencer honours at the next fade, so the picture on the tube always looks intentional.
+
+A visual is a scene like any other: a C file that defines `const Scene scene_<name>`. `ssh zapper upload foo < foo.c` sends it. On the Pi it is checked (text, size, the definition), compiled with the show's flags, and run offscreen through its whole length with the preview tool, so a crash or an absurd frame time ends there and not on the tube. Then a new binary is linked, the running show is asked to `exec` it after its fade, and it carries its channel and mode across, so nobody in the room sees a restart. If the new build does not answer within seconds, the previous binary, kept as a hard link, goes back and systemd restarts it. A compile error comes back to the uploader as the compiler's own message.
+
+Code from members is still code. The protection is not a filter over the source but the box the show runs in. The service user `zapper` has no shell: sshd's `ForceCommand` gives every key exactly one program, a dispatcher that parses the command against a whitelist of characters and words before anything else happens, and keys carry a role, `op` zaps, `admin` also uploads and deletes. The show itself runs as that user inside a systemd sandbox: no network, a read-only file system including its own directory, only the framebuffer and the console as devices, no way to gain privileges, a syscall filter; `systemd-analyze security` rates it 0.8 of 10. The dispatcher's own client, `tvctl`, is built without scene code, so a visual that dies on start cannot take down the hand that controls it. What an admin key means is therefore exactly this: code runs as `zapper`, with those rights and no others. The deploy path keeps the same promise in the other direction: the unit file comes from the workstation, and the deploying login may only build and sync as `zapper` plus a few fixed `systemctl` commands, so nothing `zapper` can write ever reaches root.
+
+The one cost is CPU. The Pi has one core and the show wants all of it; an open SSH session spends some on encryption, and the zapper polls the show twice a second. A few long frames while someone is zapping are the price of the remote.
+
+## 8. Making-of with an AI
 
 The show was programmed by Claude, Anthropic's AI model, working over SSH from a Mac. It never saw the TV. A human in the space did: reported the black and white picture, the flicker, read the numbers off the test card, and said when something looked wrong. Everything else, the C code, the tools, the slides, the scripts, came out of that conversation.
 
@@ -223,10 +236,7 @@ Three things made this work, and they are the same three that make any remote gr
 
 What this is not: a claim that the pictures are new. Plasma, tunnels, fire and particles are the demoscene's common inheritance, and the show says so on its own slides. What is new, or at least rare, is the combination: a 2012 single-core board driving a television in a form that does not flicker, a show that explains itself while it runs, a build in which no image file exists anywhere, and a toolchain that lets a programmer who cannot see the screen ship pictures to it with confidence.
 
-<!-- ssh: a chapter on the member-facing side joins here once that feature lands: the
-     control channel, the hardened service, and uploading a visual over SSH. -->
-
-## 8. Licences and thanks
+## 9. Licences and thanks
 
 The code is GPL-3.0-or-later; the texts, this paper, the slide decks and the flipbook notes are CC-BY-4.0, so they can travel into talks, articles and newsletters with an attribution to bitcircus101. The letters are Terminus by Dimitar Zhekov, which the website bundles under the SIL Open Font License 1.1. The fire follows the PlayStation Doom effect as described by Fabien Sanglard. The rest is the demoscene's, with thanks.
 

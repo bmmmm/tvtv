@@ -74,7 +74,7 @@ sudo systemctl stop|start|restart bc101                  # the looping show
 ~/tvtv/bc101 -l                                          # list scenes
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 juggle fire       # play chosen scenes
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 -t 120 explain    # stop after 120 s
-cat /tmp/anim.log                                        # average fps and worst frame per scene
+cat /run/bc101/anim.log                                  # average fps and worst frame per scene (/tmp when run by hand)
 ```
 
 Stop the service before starting scenes by hand, otherwise both draw on tty1. `explain`

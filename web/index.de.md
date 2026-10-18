@@ -55,6 +55,8 @@ Der Fernseher wollte erst überredet werden. Der Pi spricht von Haus aus NTSC, d
 
 Programmiert hat die Show Claude, eine KI, per SSH vom Mac aus, ohne den Fernseher je zu sehen. Deshalb sind die Werkzeuge, die Bilder rendern, Bewegung messen und ganze Szenen zu einem Flipbook bündeln, so wichtig wie die Szenen selbst. Das Whitepaper erzählt diese Geschichte.
 
+Mitglieder steuern die Show per SSH: `ssh zapper` öffnet eine Fernbedienung im Terminal, jede Szene hat eine Programmnummer, und eine Szene in C lässt sich hochladen und wird zum eigenen Kanal, gebaut, offscreen durchgespielt und mit Rollback eingetauscht. Die Show läuft in einer Sandbox, als Nutzer, der sonst nichts darf.
+
 ## Weiterlesen
 
 ::: {.cards}

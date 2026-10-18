@@ -76,7 +76,7 @@ sudo systemctl stop|start|restart bc101                  # die Show in Schleife
 ~/tvtv/bc101 -l                                          # Szenen auflisten
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 juggle fire       # gewählte Szenen spielen
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 -t 120 explain    # nach 120 s beenden
-cat /tmp/anim.log                                        # mittlere fps und schlechtestes Bild je Szene
+cat /run/bc101/anim.log                                  # mittlere fps und schlechtestes Bild je Szene (/tmp bei Handstart)
 ```
 
 Vor dem Starten von Hand den Dienst stoppen, sonst malen beide auf tty1. `explain`

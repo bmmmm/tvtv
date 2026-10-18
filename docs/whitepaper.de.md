@@ -33,6 +33,7 @@ margin:
 - Gemessen, nicht geraten: Der Sequencer protokolliert auf dem Pi die Bildrate und das langsamste Bild jeder Szene, ein Bench-Werkzeug tut dasselbe offline.
 - Die Show hat eine KI per SSH geschrieben, ohne den Bildschirm je zu sehen. Die Werkzeuge, die das möglich machten, ein Offscreen-Renderer, Bewegungsmessungen, ein eigenständiges Flipbook und ein Deploy, das prüft, ob die Show läuft, sind der Teil, der sich zum Nachmachen lohnt.
 - Derselbe C-Code läuft im Browser, übersetzt nach WebAssembly, auf der Website des Projekts.
+- Mitglieder steuern die Show per SSH: `ssh zapper` ist eine Fernbedienung im Terminal, jede Szene hat eine Programmnummer, und Szenen in C lassen sich hochladen, werden gebaut, offscreen durchgespielt und mit Rollback eingetauscht. Die Show läuft in einer Sandbox, als Nutzer, der sonst nichts darf.
 
 ## 1. Ein Röhrenfernseher und ein Pi von 2012
 
@@ -98,7 +99,7 @@ Das ist die ganze Schnittstelle. `init()` läuft einmal beim Start der Szene und
 
 Der Sequencer in `main.c` ist eine Schleife mit vier Schritten: Die Szene malt ins Canvas, die Blende skaliert das Bild am Anfang und Ende einer Szene, der Blit kopiert das Canvas in den Framebuffer, und ein Schlaf wartet auf den nächsten 20-ms-Takt. Der Takt ist ein absoluter Zeitpunkt, keine relative Pause: Das Programm berechnet, wann das nächste Bild fällig ist, und schläft mit `clock_nanosleep` und `TIMER_ABSTIME` bis dahin, ein zu früh fertiges Bild verschiebt den Takt also nicht. Auf ein zu spätes Bild folgt das nächste sofort, und erst wenn das Programm mehr als 100 ms in Rückstand gerät, gibt es auf und setzt den Takt neu auf jetzt. Der Zeitschritt, den eine Szene bekommt, ist auf 50 ms gedeckelt, ein Schluckauf lässt also nie ein Teilchen quer über den Bildschirm springen.
 
-Jede Szene bekommt am Ende eine Zeile in `/tmp/anim.log`: ihre mittlere Bildrate und ihr langsamstes Bild in Millisekunden. Diese zwei Zahlen sind die ganze Performance-Geschichte der Show, und Kapitel 5 handelt von ihnen.
+Jede Szene bekommt am Ende eine Zeile in `/run/bc101/anim.log`: ihre mittlere Bildrate und ihr langsamstes Bild in Millisekunden. Diese zwei Zahlen sind die ganze Performance-Geschichte der Show, und Kapitel 5 handelt von ihnen.
 
 ### Ein Pixel wird zwei
 
@@ -175,7 +176,7 @@ Das erste ist das Protokoll, das der Sequencer auf dem Pi schreibt: mittlere Bil
 Das zweite Instrument ist `build/preview ... bench`, das eine gegebene Zahl von Bildern offline rendert und Mittelwert und Maximum meldet. Auf einem Arbeitsrechner sagen seine Zahlen nichts über den Pi, sie sind 20- bis 50-mal kleiner, aber als Verhältnis zwischen zwei Fassungen einer Szene sagen sie alles: Verdoppelt eine Änderung die Bildzeit auf dem Mac, verdoppelt sie sie auch auf dem Pi.
 
 <!-- Hier kommt eine Tabelle mit fps und langsamstem Bild jeder Szene aus einem vollen
-     Durchlauf der Show auf dem Pi hin (cat /tmp/anim.log nach einer Schleife). -->
+     Durchlauf der Show auf dem Pi hin (cat /run/bc101/anim.log nach einer Schleife). -->
 
 Zwei weitere Zahlen beschreiben das Programm. Das Ganze sind rund 2500 Zeilen C, die zu einer 95 KB großen ausführbaren Datei werden, gegen nichts gelinkt als die C-Bibliothek, die Mathematikbibliothek und die Speicherroutinen des Pi. Ein voller Build dauert auf dem Pi 1 etwas mehr als eine Minute; eine geänderte Szene ist in etwa sechs Sekunden neu gebaut, weil `make` nur übersetzt, was sich geändert hat.
 
@@ -197,7 +198,7 @@ Ein Detail zeigt, wie wörtlich solche Werkzeuge sein müssen. Der Renderer tast
 
 ### Ein Deploy, das sich selbst prüft
 
-Das Repository ist die Quelle der Wahrheit; der Pi bekommt immer nur Kopien. `scripts/deploy.sh` gleicht die Quellen mit `rsync` ab und startet dann `tools/install.sh` auf dem Pi, das baut, das Installationsverzeichnis in die systemd-Unit schreibt, den Dienst aktiviert und neu startet, und ihn dann drei Sekunden lang beobachtet. Läuft die Show danach nicht mehr mit derselben Prozess-ID, schlägt das Deploy fehl. Eine Szene, die auf dem Pi abstürzt, aber nicht auf dem Mac, fällt beim Deploy auf, nicht am nächsten Morgen.
+Das Repository ist die Quelle der Wahrheit; der Pi bekommt immer nur Kopien. `scripts/deploy.sh` gleicht die Quellen mit `rsync` ab, installiert die systemd-Unit, die es selbst erzeugt, und startet dann `tools/install.sh` auf dem Pi, das als Dienstnutzer baut, den Dienst aktiviert und neu startet, und ihn dann drei Sekunden lang beobachtet. Läuft die Show danach nicht mehr mit derselben Prozess-ID, schlägt das Deploy fehl. Eine Szene, die auf dem Pi abstürzt, aber nicht auf dem Mac, fällt beim Deploy auf, nicht am nächsten Morgen.
 
 Der Build selbst hat eine Lektion auf die harte Tour gelernt. Ein Neustart mitten in `make` hinterließ einmal eine leere Objektdatei mit frischem Zeitstempel; `make` hielt sie für aktuell, und das Linken scheiterte an einer fehlenden Referenz. Seitdem wird jedes Ziel unter einem temporären Namen geschrieben und umbenannt, und `.DELETE_ON_ERROR` räumt halb geschriebene Dateien weg, wenn ein Rezept fehlschlägt.
 
@@ -209,7 +210,19 @@ Die Website spielt die Show mit dem echten Szenencode. Ein kleiner Shim ersetzt 
 
 Jeder Push baut die ganze Website auf GitHubs Runnern mit demselben `make site`, das ein Entwickler lokal ausführt: das WebAssembly-Modul, beide Flipbooks, diesen Text als HTML und PDF, die Abbildungen. Ein Secret-Scan über die ganze Historie und `shellcheck` über die Skripte vervollständigen den Satz. Pushes auf `main` werden auf GitHub Pages veröffentlicht.
 
-## 7. Making-of mit einer KI
+## 7. Die Fernbedienung: eine Programmnummer für jede Szene
+
+Eine Show in einem gemeinsam genutzten Raum braucht einen Weg zu sagen: die da, jetzt. Die Fernbedienung ist die Mitgliederseite von tvtv, und sie ist bewusst keine App, sondern `ssh zapper@<der pi>`. Mit einem Terminal öffnet das den Zapper, eine Fernbedienung aus Text: LED-Ziffern für das Programm, das Programmraster, ein Fortschrittsbalken, die Tasten, die ein Fernseher hätte. Mit einem Befehl ist es ein einzelner Schuss: `ssh zapper 7` hält Programm 7, `next` springt weiter, `auto` kehrt zur Schleife zurück, `play testcard 30` zeigt etwas ein einziges Mal. Das funktioniert aus der SSH-App eines Handys genauso wie vom Laptop.
+
+Jede Szene hat eine Programmnummer: 00 ist Standby, ein schwarzes Bild, bei dem der Dienst weiterläuft; 01 bis 17 sind die Schleife in Spielreihenfolge; 20 bis 22 die Extras; ab 30 kommen die *Visuals*, Szenen, die Mitglieder hochladen. Hinter den Nummern steckt ein kleiner Steuerkanal im Sequencer. Einmal pro Bild fragt er einen Unix-Socket nach einer Textzeile und antwortet mit `ok` oder `err`; `status`, `list` und `log` lesen, `tune`, `play`, `next` und `auto` ändern, was nach der laufenden Blende passiert. Nichts wird mitten im Bild unterbrochen: Eine Änderung ist ein Wunsch, den der Sequencer bei der nächsten Blende erfüllt, und so sieht das Bild auf der Röhre immer beabsichtigt aus.
+
+Ein Visual ist eine Szene wie jede andere: eine C-Datei, die `const Scene scene_<name>` definiert. `ssh zapper upload foo < foo.c` schickt sie. Auf dem Pi wird sie geprüft (Text, Größe, die Definition), mit den Flags der Show kompiliert und mit dem Preview-Werkzeug offscreen in voller Länge durchgespielt, sodass ein Absturz oder eine absurde Bildzeit dort endet und nicht auf der Röhre. Dann wird ein neues Binary gelinkt, die laufende Show wird nach ihrer Blende per `exec` darauf umgesetzt und nimmt Programm und Modus mit, sodass niemand im Raum einen Neustart sieht. Antwortet der neue Build nicht binnen Sekunden, kehrt das vorherige Binary zurück, das als Hardlink aufbewahrt wurde, und systemd startet es. Ein Compile-Fehler kommt als Meldung des Compilers zurück zu dem, der hochgeladen hat.
+
+Code von Mitgliedern bleibt Code. Der Schutz ist kein Filter über den Quelltext, sondern die Kiste, in der die Show läuft. Der Dienstnutzer `zapper` hat keine Shell: sshds `ForceCommand` gibt jedem Schlüssel genau ein Programm, einen Dispatcher, der den Befehl gegen eine Whitelist aus Zeichen und Wörtern prüft, bevor irgendetwas passiert, und Schlüssel tragen eine Rolle, `op` zappt, `admin` lädt auch hoch und löscht. Die Show selbst läuft als dieser Nutzer in einer systemd-Sandbox: kein Netz, ein schreibgeschütztes Dateisystem samt eigenem Verzeichnis, als Geräte nur Framebuffer und Konsole, kein Weg zu mehr Rechten, ein Syscall-Filter; `systemd-analyze security` bewertet sie mit 0,8 von 10. Der Client des Dispatchers, `tvctl`, ist ohne Szenencode gebaut, damit ein Visual, das beim Start stirbt, nicht die Hand mitreißt, die es steuert. Ein Admin-Schlüssel bedeutet damit genau dies: Code läuft als `zapper`, mit diesen Rechten und keinen anderen. Der Deploy-Weg hält dasselbe Versprechen in die andere Richtung: Die Unit-Datei kommt vom Arbeitsrechner, und der Deploy-Login darf nur als `zapper` bauen und abgleichen plus ein paar feste `systemctl`-Befehle, sodass nichts, was `zapper` schreiben kann, je root erreicht.
+
+Der eine Preis ist Rechenzeit. Der Pi hat einen Kern, und die Show will ihn ganz; eine offene SSH-Sitzung verbraucht etwas davon für die Verschlüsselung, und der Zapper fragt die Show zweimal pro Sekunde. Ein paar lange Bilder, während jemand zappt, sind der Preis der Fernbedienung.
+
+## 8. Making-of mit einer KI
 
 Programmiert hat die Show Claude, das KI-Modell von Anthropic, per SSH vom Mac aus. Es hat den Fernseher nie gesehen. Ein Mensch im Raum schon: Er meldete das schwarzweiße Bild, das Flackern, las die Zahlen von der Testkarte ab und sagte, wenn etwas falsch aussah. Alles andere, der C-Code, die Werkzeuge, die Folien, die Skripte, kam aus diesem Gespräch.
 
@@ -223,10 +236,7 @@ Drei Dinge haben das möglich gemacht, und es sind dieselben drei, die jede Graf
 
 Was das nicht ist: die Behauptung, die Bilder seien neu. Plasma, Tunnel, Feuer und Teilchen sind das gemeinsame Erbe der Demoszene, und die Show sagt das auf ihren eigenen Folien. Neu, oder zumindest selten, ist die Kombination: ein Einkern-Board von 2012, das einen Fernseher in einer Form ansteuert, die nicht flackert, eine Show, die sich selbst erklärt, während sie läuft, ein Build, in dem nirgends eine Bilddatei existiert, und eine Werkzeugkette, mit der ein Programmierer, der den Bildschirm nicht sehen kann, mit Zuversicht Bilder dorthin liefert.
 
-<!-- ssh: hier kommt ein Kapitel zur Mitgliederseite hinzu, sobald das Feature drin ist: der
-     Steuerkanal, der gehärtete Dienst und das Hochladen eines Visuals per SSH. -->
-
-## 8. Lizenzen und Dank
+## 9. Lizenzen und Dank
 
 Der Code ist GPL-3.0-or-later; die Texte, dieser Text, die Folien-Decks und die Flipbook-Notizen sind CC-BY-4.0, sie dürfen also mit einer Nennung von bitcircus101 in Vorträge, Artikel und Newsletter wandern. Die Buchstaben sind Terminus von Dimitar Zhekov, das die Website unter der SIL Open Font License 1.1 bündelt. Das Feuer folgt dem PlayStation-Doom-Effekt, wie Fabien Sanglard ihn beschrieben hat. Der Rest gehört der Demoszene, mit Dank.
 

@@ -64,32 +64,57 @@ an SSH app on a phone. `tvctl remote --ascii` for terminals without the glyphs.
 
 ## Setup, once
 
+Three accounts take part on the Pi, and keeping them apart is most of the setup:
+
+| Login | Who | Rights |
+|---|---|---|
+| your own | a person | sudo with a password; needed once, for the setup |
+| `deploy` | the deploy automation (`scripts/deploy.sh`, `tv-keys`) | exact sudo rules, no password; written by the setup |
+| `zapper` | the remote | no shell, the dispatcher only, keys only |
+
+The setup needs root once, and only a person has that: the deploying login has no password and
+no sudo for arbitrary commands, so the root step cannot run over a plain `ssh`. Hence two steps:
+
 ```sh
-scripts/deploy.sh --setup                       # from the workstation; sudo asks for its password
-ssh <pi> sudo tv-keys add alice admin < ~/.ssh/id_ed25519_tv.pub
+scripts/deploy.sh --setup        # 1. workstation: syncs a copy and prints the command below
+ssh you@<the pi>                 # 2. the Pi, as yourself:
+sudo ~deploy/tvtv-setup/tools/setup-remote.sh --deployer deploy
 ```
 
-`tools/setup-remote.sh` (what `--setup` runs on the Pi, as root, idempotent) creates the system
-user `zapper` (groups `video`, `tty`), moves the show to `/opt/tvtv` owned by `zapper`, installs the
-dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the empty keys file
+`BC101_SETUP_HOST=you@<the pi> scripts/deploy.sh --setup` does both in one go, with sudo
+asking for your password in the terminal. `tools/setup-remote.sh` is idempotent, run as root,
+and does this: creates the system user `zapper` (groups `video`, `tty`; `TVTV_USER` picks
+another name, and a name that belongs to a person is refused, because the sshd rule below
+would lock that person into the dispatcher), moves the show to `/opt/tvtv` owned by `zapper`,
+installs the dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the empty keys file
 `/etc/tvtv/authorized_keys`, the sshd drop-in `system/sshd-tv.conf` (checked with `sshd -t`,
-then reloaded) and the systemd unit, and runs `tools/install.sh` (build as `zapper`, restart,
-health check). The deploying login (`BC101_HOST`, by default `tvtv-deploy`) gets exact sudo
-rules in `/etc/sudoers.d/tvtv-deploy`: `rsync` and `make` as `zapper`, the unit file from stdin,
-`systemctl` for the service, `tv-keys`. The setup itself needs a login that may sudo with a
-password; `BC101_SETUP_HOST` names it if that is not the deploying login. From then on plain
-`scripts/deploy.sh` targets `/opt/tvtv` without prompts. On your machine:
+then reloaded) and the systemd unit, writes `/etc/sudoers.d/tvtv-deploy` for the deploying
+login (`rsync` and `make` as `zapper`, the unit file from stdin, `systemctl` for the service,
+`tv-keys`), and runs `tools/install.sh` (build as `zapper`, restart, health check). From then on
+plain `scripts/deploy.sh` targets `/opt/tvtv` without prompts. The old checkout in the
+deploying login's home can go.
+
+Then your key and an alias. Use the Pi's IP address if its host name does not resolve from
+your machine:
+
+```sh
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_zapper -N ''
+ssh tvtv-deploy sudo tv-keys add alice admin < ~/.ssh/id_ed25519_zapper.pub
+```
 
 ```
 Host zapper
     HostName <the pi>
     User zapper
-    IdentityFile ~/.ssh/id_ed25519_tv
+    IdentityFile ~/.ssh/id_ed25519_zapper
 ```
+
+`scripts/tv status` answers `ok` and the current scene; `scripts/tv` opens the zapper.
 
 Keys: `tv-keys add <who> <op|admin> [file]`, `tv-keys rm <who>`, `tv-keys list`. `op` zaps,
 `admin` also uploads and deletes. Every command is logged with the key's name:
-`journalctl -t tvtv`.
+`journalctl -t tvtv`. The show runs on one core; an open SSH session costs it some of that, so
+a few long frames while the zapper is open are the price of the remote, not a bug.
 
 ## Visuals
 
