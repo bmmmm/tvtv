@@ -20,9 +20,12 @@ if [[ ${1:-} == --deployer && -n ${2:-} ]]; then deployer=$2; fi
 for t in useradd sshd rsync make gcc logger visudo; do
   command -v "$t" > /dev/null || { echo "missing: $t" >&2; exit 1; }
 done
-if ! sshd -T 2> /dev/null | grep -qi '^exposeauthinfo'; then
-  echo "this sshd lacks ExposeAuthInfo (OpenSSH >= 7.6 needed)" >&2
-  exit 1
+# ExposeAuthInfo (OpenSSH 7.6+) is how the dispatcher learns which key logged in. A soft check
+# only: `sshd -t` on the drop-in below is the one that decides.
+if out=$(sshd -T -C user=root,host=localhost,addr=127.0.0.1 2>&1); then
+  grep -qi '^exposeauthinfo' <<< "$out" || echo "warning: sshd -T shows no ExposeAuthInfo ($(ssh -V 2>&1))" >&2
+else
+  echo "warning: sshd -T failed, going on: ${out%%$'\n'*}" >&2
 fi
 if [[ $(stat -c %U "$SRC") == "$U" ]]; then
   echo "run the setup from a copy that does not belong to $U (scripts/deploy.sh --setup)" >&2
