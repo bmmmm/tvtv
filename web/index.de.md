@@ -24,10 +24,11 @@ credits: "Code GPL-3.0-or-later, Texte CC-BY-4.0. Die Schrift ist Terminus, die 
   <button id="play" type="button">Pause</button>
   <select id="scene" data-all="ganze Show" aria-label="Szene"></select>
   <label><input id="wide" type="checkbox" checked> 2×</label>
+  <label><input id="crt" type="checkbox" checked> CRT</label>
   <span id="readout" class="readout"></span>
   <span class="budget" title="Bildzeit gegen das Budget von 20 ms"><i id="budget"></i></span>
 </div>
-<p class="hint">Leertaste pausiert, N springt weiter. Szenen mit · gehören nicht zur Schleife: die zwei Folien-Decks und die Testkarte. 2× ist die Pixelverdopplung, die der Pi auf dem Weg zum Fernseher macht; der Balken ist die Zeit, die dein Rechner pro Bild braucht, gemessen an den 20 ms des Pi.</p>
+<p class="hint">Leertaste pausiert, N springt weiter. Szenen mit · gehören nicht zur Schleife: die zwei Folien-Decks und die Testkarte. 2× ist die Pixelverdopplung, die der Pi auf dem Weg zum Fernseher macht, CRT das Glas und die Zeilen der Röhre; der Balken ist die Zeit, die dein Rechner pro Bild braucht, gemessen an den 20 ms des Pi.</p>
 ```
 
 ## Kurz gesagt
@@ -43,7 +44,7 @@ Budget
 :   50 Bilder pro Sekunde lassen 20 Millisekunden pro Bild. Alles Teure, Sinus, Winkel, Abstände, wird einmal in Tabellen gerechnet; ein Bild schlägt nur nach und addiert.
 
 Code
-:   Rund 2500 Zeilen C: 19 Szenendateien, ein Kern, ein Sequencer und zwei Folien-Decks als reiner Text. GPL-3.0 für den Code, CC-BY-4.0 für die Texte.
+:   Rund 2500 Zeilen C: 19 Szenendateien, ein Kern, ein Sequencer und zwei Folien-Decks als reiner Text. Diese Seite führt sie unverändert aus; ein Shim von 70 Zeilen vertritt den Framebuffer. GPL-3.0 für den Code, CC-BY-4.0 für die Texte.
 :::
 
 ## So funktioniert es

@@ -24,10 +24,11 @@ credits: "Code GPL-3.0-or-later, texts CC-BY-4.0. The letters are Terminus, the 
   <button id="play" type="button">Pause</button>
   <select id="scene" data-all="whole show" aria-label="scene"></select>
   <label><input id="wide" type="checkbox" checked> 2×</label>
+  <label><input id="crt" type="checkbox" checked> CRT</label>
   <span id="readout" class="readout"></span>
   <span class="budget" title="frame time against the 20 ms budget"><i id="budget"></i></span>
 </div>
-<p class="hint">Space pauses, N skips ahead. Scenes marked · are not in the loop: the two slide decks (in German) and the test card. 2× is the pixel doubling the Pi does on the way to the TV; the bar is the time your machine needs per frame, against the 20 ms the Pi has.</p>
+<p class="hint">Space pauses, N skips ahead. Scenes marked · are not in the loop: the two slide decks (in German) and the test card. 2× is the pixel doubling the Pi does on the way to the TV, CRT the glass and the scan lines of the tube; the bar is the time your machine needs per frame, against the 20 ms the Pi has.</p>
 ```
 
 ## In short
@@ -43,7 +44,7 @@ Budget
 :   50 frames a second leave 20 milliseconds per picture. Everything expensive, sines, angles, distances, is computed once into tables; a frame only looks things up and adds.
 
 Code
-:   About 2,500 lines of C: 19 scene files, a core, a sequencer, and two slide decks that are plain text. GPL-3.0 for the code, CC-BY-4.0 for the texts.
+:   About 2,500 lines of C: 19 scene files, a core, a sequencer, and two slide decks that are plain text. This page runs them unchanged; a 70-line shim stands in for the framebuffer. GPL-3.0 for the code, CC-BY-4.0 for the texts.
 :::
 
 ## How it works

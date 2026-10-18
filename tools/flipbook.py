@@ -86,7 +86,7 @@ def section(seq, n):
       <h2 id="h-{sid}">{esc(seq.get("title", sid))}</h2>
       <span class="tag">{esc(sid)} · {dur:g} s · {n} frames</span>
     </div>
-    <div class="tv"><canvas id="{sid}-canvas" width="360" height="288" aria-label="scene {esc(sid)}"></canvas></div>
+    <div class="tv flat"><canvas id="{sid}-canvas" width="360" height="288" aria-label="scene {esc(sid)}"></canvas></div>
     <div class="console">
       <button id="{sid}-play" type="button">Pause</button>
       <input id="{sid}-scrub" type="range" min="0" max="{n - 1}" value="0" aria-label="frame">

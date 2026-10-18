@@ -2,7 +2,7 @@
 // Runs the WebAssembly build of the show (web/shim.c) on a canvas. The show is stepped in fixed
 // 20 ms ticks like on the Pi, whatever the display's refresh rate, so every scene looks the same
 // as on the tube, including the ones that build their state frame by frame.
-// Expects: #tv (canvas), #scene (select), #play (button), #wide (checkbox), #readout, #budget
+// Expects: #tv (canvas), #scene (select), #play (button), #wide and #crt (checkboxes), #readout, #budget
 // and the global createBC101 from bc101.js.
 (async () => {
   const $ = id => document.getElementById(id);
@@ -26,7 +26,7 @@
   canvas.height = H;
   const img = ctx.createImageData(W, H);
 
-  const picker = $("scene"), play = $("play"), wide = $("wide"), readout = $("readout"), budget = $("budget");
+  const picker = $("scene"), play = $("play"), wide = $("wide"), crt = $("crt"), readout = $("readout"), budget = $("budget");
   const all = picker.dataset.all || "whole show";
   picker.add(new Option(all, "-1"));
   for (let i = 0; i < C.count(); i++)
@@ -65,6 +65,7 @@
     draw(C.step(0)); status();
   });
   if (wide) wide.addEventListener("change", () => canvas.classList.toggle("square", !wide.checked));
+  if (crt) crt.addEventListener("change", () => canvas.parentElement.classList.toggle("flat", !crt.checked));
   document.addEventListener("keydown", e => {
     if (e.key === " " && e.target === document.body) { e.preventDefault(); play.click(); }
     if (e.key === "n") { C.start((C.current() + 1) % C.loop(), false); picker.value = "-1"; }
