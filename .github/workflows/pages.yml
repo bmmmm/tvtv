@@ -1,0 +1,67 @@
+# Builds the website (build/site) on every push and pull request and deploys it to GitHub Pages
+# from main. Pages must be enabled with build_type=workflow before the first push (see the
+# README, "Website"). Toolchain: gcc and make, the Terminus console fonts, Emscripten, pandoc
+# and typst (pinned and checksummed), node for the WebAssembly smoke test.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  EMSDK_VERSION: 6.0.12
+  PANDOC_VERSION: 3.12.1
+  PANDOC_SHA256: d0c90410e90204c9ca83b8539fac5c7aed01fd537207e4585849f8abc5df20b8
+  TYPST_VERSION: 0.15.1
+  TYPST_SHA256: a6d077d0a95eed5a2eba715b2dae06be954f624ccbf85758a03f389ded33118c
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Terminus console fonts
+        run: |
+          test -f /usr/share/consolefonts/Lat15-TerminusBold32x16.psf.gz || {
+            sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends console-setup-linux; }
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+      - name: pandoc and typst
+        run: |
+          set -euo pipefail
+          curl -sSLo pandoc.tar.gz "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz"
+          echo "${PANDOC_SHA256}  pandoc.tar.gz" | sha256sum -c -
+          sudo tar xzf pandoc.tar.gz --strip-components=1 -C /usr/local
+          curl -sSLo typst.tar.xz "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz"
+          echo "${TYPST_SHA256}  typst.tar.xz" | sha256sum -c -
+          sudo tar xJf typst.tar.xz --strip-components=1 -C /usr/local/bin typst-x86_64-unknown-linux-musl/typst
+          pandoc --version | head -1 && typst --version && emcc --version | head -1
+      - name: Build and check the site
+        run: make fonts/big.psf fonts/small.psf preview site check-site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

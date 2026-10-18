@@ -139,7 +139,7 @@ her, der Textmodus ist zurück.
 @rainbow
 Quellcode und Folien liegen im Git-Repo
 "tvtv". scripts/deploy.sh bringt sie
-nach ~deploy/tvtv/ auf den Pi.
+nach ~/tvtv/ auf den Pi.
 
 Peace, Love & Pointer.
 

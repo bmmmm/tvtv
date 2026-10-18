@@ -57,3 +57,7 @@ clean:
 	rm -rf build bc101 tvctl fonts
 
 .PHONY: all clean preview FORCE
+
+# Website (GitHub Pages), needs emcc, pandoc, typst: see web/site.mk. Optional on purpose:
+# the Pi only receives src, slides, system, tools and this Makefile (scripts/deploy.sh).
+-include web/site.mk

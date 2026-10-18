@@ -1,0 +1,174 @@
+{
+  "SPDX-License-Identifier": "CC-BY-4.0",
+  "lang": "de",
+  "title": "Bild für Bild",
+  "eyebrow": "bc101 · Raspberry Pi 1 · 360 × 288 · PAL 50 Hz",
+  "lede": "Vier Szenen der Show, aus dem Quellcode gerendert, Bild für Bild. Jedes Bild ist das echte Canvas der Szene, hier verdoppelt wie auf dem Fernseher. Abspielen, scrubben, langsamer stellen.",
+  "footer": "created with ♥ in bitcircus101 · assisted by Claude",
+  "credits": "Gerendert mit build/preview und tools/flipbook.py. Keine Bilddatei liegt im Repo, auch hier nicht: alles kommt aus dem Code.",
+  "nav": [
+    {
+      "href": "index.de.html",
+      "label": "Show"
+    },
+    {
+      "href": "flipbook.de.html",
+      "label": "Flipbook",
+      "current": true
+    },
+    {
+      "href": "whitepaper.de.html",
+      "label": "Whitepaper"
+    },
+    {
+      "href": "https://github.com/bmmmm/tvtv",
+      "label": "GitHub"
+    }
+  ],
+  "alt": {
+    "href": "flipbook.html",
+    "lang": "en",
+    "label": "English"
+  },
+  "sequences": [
+    {
+      "scene": "crt",
+      "title": "Cathode Ray Tube",
+      "t0": 0,
+      "t1": 16,
+      "fps": 12.5,
+      "marks": [
+        {
+          "t0": 1.5,
+          "t1": 5,
+          "label": "ELECTRON GUN"
+        },
+        {
+          "t0": 5,
+          "t1": 8.5,
+          "label": "DEFLECTION COILS"
+        },
+        {
+          "t0": 8.5,
+          "t1": 12,
+          "label": "ELECTRON BEAM"
+        },
+        {
+          "t0": 12,
+          "t1": 15.5,
+          "label": "PHOSPHOR SCREEN"
+        }
+      ],
+      "notes": [
+        [
+          "Bildrate",
+          "12,5 Bilder je Sekunde, jedes steht 80 ms. Das ist das Ruckeln der 90er-Renderings, die Show läuft darunter weiter mit 50 Hz."
+        ],
+        [
+          "Strahl",
+          "Kanone → Ablenkspulen → Schirm. 16 Rasterzeilen, drei Bildschritte je Zeile, Rücklauf sechs Schritte. Nachleuchten über eine ganze Periode."
+        ],
+        [
+          "Pi 1",
+          "50,0 fps in der laufenden Show, 9 bis 13 ms je Bild gemessen neben der Show auf demselben Kern."
+        ]
+      ]
+    },
+    {
+      "scene": "bernd",
+      "title": "Bernd das Brot",
+      "t0": 0,
+      "t1": 13,
+      "fps": 25,
+      "marks": [
+        {
+          "t0": 10,
+          "label": "Ecke 10,0 s"
+        }
+      ],
+      "notes": [
+        [
+          "Bewegung",
+          "Wie das DVD-Logo: 115 px/s waagerecht, 118 px/s senkrecht, Abpraller an jedem Rand. Hier mit 25 Bildern je Sekunde, auf dem Fernseher 50."
+        ],
+        [
+          "Farbe",
+          "Wechselt bei jedem Randtreffer durch acht Farben, Brot zuerst. In der Ecke springt sie um zwei."
+        ],
+        [
+          "Ecke",
+          "Bei t = 10,0 s trifft er die Ecke oben links exakt, Pixel 0,0. Die Überquerungszeiten 2,6 s und 1,9 s sind dafür gewählt."
+        ]
+      ]
+    },
+    {
+      "scene": "explode",
+      "title": "Explosion",
+      "t0": 0,
+      "t1": 8,
+      "fps": 12.5,
+      "marks": [
+        {
+          "t0": 0.8,
+          "label": "BOOM"
+        },
+        {
+          "t0": 1.4,
+          "t1": 3.6,
+          "label": "SCHWERKRAFT"
+        },
+        {
+          "t0": 3.6,
+          "t1": 6.8,
+          "label": "FEDER ZURÜCK"
+        }
+      ],
+      "notes": [
+        [
+          "Teilchen",
+          "Jedes gesetzte Pixel des Titels in der großen Schrift wird ein Teilchen mit eigener Geschwindigkeit, von der Mitte weg plus einem zufälligen Stoß; die Farbe folgt dem Buchstaben."
+        ],
+        [
+          "Physik",
+          "Schwerkraft 420 px/s², der Boden gibt die halbe Geschwindigkeit zurück und nimmt ein Fünftel der Seitwärtsbewegung, die Wände spiegeln. Ab t = 3,6 s zieht eine Feder jedes Teilchen heim, ab t = 6,8 s sitzt es fest."
+        ],
+        [
+          "Druckwelle",
+          "Bei t = 0,8 s laufen drei Ringe mit 420 px/s nach außen und verblassen über 0,9 s; die Rasterbalken blitzen 150 ms lang auf."
+        ]
+      ]
+    },
+    {
+      "scene": "fire",
+      "title": "Feuer",
+      "t0": 0,
+      "t1": 8,
+      "fps": 12.5,
+      "marks": [
+        {
+          "t0": 0.5,
+          "t1": 5.5,
+          "label": "DER TITEL BRENNT"
+        },
+        {
+          "t0": 5.5,
+          "label": "ERLISCHT"
+        }
+      ],
+      "notes": [
+        [
+          "Hitze",
+          "Ein Puffer aus 180 × 144 Hitzewerten, 0 kalt bis 36 weißglühend, als 2 × 2 Pixel gezeichnet. Jedes Bild steigt jeder Wert eine Zeile, verliert zufällig Hitze und driftet ein Pixel zur Seite."
+        ],
+        [
+          "Quellen",
+          "Die unterste Zeile glüht mit 36 bis t = 5,5 s; ab t = 0,5 s sind auch die Buchstaben des Titels Quellen, das Wort brennt. Dann wird die unterste Zeile kalt und das Feuer erlischt."
+        ],
+        [
+          "Palette",
+          "37 Farben von Schwarz über Rot und Gelb bis Weiß: das Feuer der PlayStation-Fassung von Doom, wie Fabien Sanglard es beschrieben hat."
+        ]
+      ]
+    }
+  ]
+}

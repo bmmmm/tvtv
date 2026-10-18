@@ -6,3 +6,4 @@
 /fonts/
 # uploaded visuals are device state, not source (tools/tv-dispatch)
 /visuals/
+__pycache__/

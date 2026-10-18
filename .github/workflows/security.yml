@@ -1,0 +1,42 @@
+# House checks for a public repository: gitleaks over the pushed commits on every push and pull
+# request and over the whole history once a week or on dispatch (the very first push of a
+# repository has no base commit and fails once); tracked files that must never exist;
+# hardcoded tokens in the tree.
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: No key material or secrets tracked
+        run: |
+          set -euo pipefail
+          bad=$(git ls-files | grep -Ei '(\.pem|\.key|\.p12|\.pfx|id_rsa|id_ed25519|secret|\.env)$' || true)
+          [ -z "$bad" ] || { echo "forbidden tracked files:"; echo "$bad"; exit 1; }
+      - name: No hardcoded tokens
+        run: |
+          set -euo pipefail
+          ! grep -rnE 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|ghs_[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_-]{20,}' \
+            --exclude-dir=.git --exclude-dir=build .
