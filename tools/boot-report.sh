@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Collects boot timing and network logs of the current boot for analysis.
-# Run on the Pi:  sudo ~deploy/tvtv/tools/boot-report.sh
+# Run on the Pi:  sudo ~/tvtv/tools/boot-report.sh
 # Writes a fresh /tmp/boot-report.XXXXXX (world-readable) and prints its name.
 # Values after password/psk/secret/key are redacted and WPA key dumps dropped;
 # SSIDs, MAC and IP addresses remain.
