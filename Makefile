@@ -41,5 +41,6 @@ clean:
 
 .PHONY: all clean preview
 
-# Website (GitHub Pages), needs emcc, pandoc, typst: see web/site.mk.
-include web/site.mk
+# Website (GitHub Pages), needs emcc, pandoc, typst: see web/site.mk. Optional, because
+# deploy.sh does not send web/ to the Pi and `make` there must not die on a missing file.
+-include web/site.mk
