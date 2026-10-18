@@ -1,0 +1,105 @@
+{
+  "SPDX-License-Identifier": "CC-BY-4.0",
+  "lang": "en",
+  "title": "Tube & Bread",
+  "eyebrow": "bc101 · Raspberry Pi 1 · 360 × 288 · PAL 50 Hz",
+  "lede": "Two scenes of the show, rendered from the source code frame by frame. Every picture is the scene's real canvas, doubled here like on the TV. Play, scrub, slow it down.",
+  "footer": "created with ♥ in bitcircus101 · assisted by Claude",
+  "credits": "Rendered with build/preview and tools/flipbook.py. There is no image file in the repository, not even here: everything comes from the code.",
+  "nav": [
+    {
+      "href": "index.html",
+      "label": "Show"
+    },
+    {
+      "href": "flipbook.html",
+      "label": "Flipbook",
+      "current": true
+    },
+    {
+      "href": "whitepaper.html",
+      "label": "Whitepaper"
+    },
+    {
+      "href": "https://github.com/bmmmm/tvtv",
+      "label": "GitHub"
+    }
+  ],
+  "alt": {
+    "href": "flipbook.de.html",
+    "lang": "de",
+    "label": "Deutsch"
+  },
+  "sequences": [
+    {
+      "scene": "crt",
+      "title": "Cathode Ray Tube",
+      "t0": 0,
+      "t1": 16,
+      "fps": 12.5,
+      "marks": [
+        {
+          "t0": 1.5,
+          "t1": 5,
+          "label": "ELECTRON GUN"
+        },
+        {
+          "t0": 5,
+          "t1": 8.5,
+          "label": "DEFLECTION COILS"
+        },
+        {
+          "t0": 8.5,
+          "t1": 12,
+          "label": "ELECTRON BEAM"
+        },
+        {
+          "t0": 12,
+          "t1": 15.5,
+          "label": "PHOSPHOR SCREEN"
+        }
+      ],
+      "notes": [
+        [
+          "Frame rate",
+          "12.5 frames per second, each held for 80 ms. That is the stutter of 1990s renderings; underneath, the show keeps running at 50 Hz."
+        ],
+        [
+          "Beam",
+          "Gun → deflection coils → screen. 16 raster lines, three picture steps per line, six steps for the flyback. Afterglow over a whole period."
+        ],
+        [
+          "Pi 1",
+          "50.0 fps in the running show, 9 to 13 ms per frame measured next to the show on the same core."
+        ]
+      ]
+    },
+    {
+      "scene": "bernd",
+      "title": "Bernd das Brot",
+      "t0": 0,
+      "t1": 13,
+      "fps": 25,
+      "marks": [
+        {
+          "t0": 10,
+          "label": "corner 10.0 s"
+        }
+      ],
+      "notes": [
+        [
+          "Motion",
+          "Like the DVD logo: 115 px/s horizontally, 118 px/s vertically, a bounce at every edge. Here at 25 frames per second, on the TV 50."
+        ],
+        [
+          "Colour",
+          "Cycles through eight colours at every edge hit, bread first. In the corner it jumps by two."
+        ],
+        [
+          "Corner",
+          "At t = 10.0 s it hits the top left corner exactly, pixel 0,0. The crossing times of 2.6 s and 1.9 s were chosen for that."
+        ]
+      ]
+    }
+  ]
+}

@@ -40,3 +40,6 @@ clean:
 	rm -rf build bc101 fonts
 
 .PHONY: all clean preview
+
+# Website (GitHub Pages), needs emcc, pandoc, typst: see web/site.mk.
+include web/site.mk

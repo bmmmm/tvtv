@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- pandoc template for the site pages; the variables come from each page's front matter. -->
+<html lang="$lang$">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>$if(pagetitle)$$pagetitle$$else$$title$$endif$</title>
+$if(description)$<meta name="description" content="$description$">
+$endif$<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+$if(alt-href)$<link rel="alternate" hreflang="$alt-lang$" href="$alt-href$">
+$endif$$if(pdf)$<link rel="alternate" type="application/pdf" href="$pdf$">
+$endif$</head>
+<body>
+<main>
+<header class="site">
+  <div class="topbar">
+    <nav aria-label="site">$for(nav)$<a href="$nav.href$"$if(nav.current)$ aria-current="page"$endif$>$nav.label$</a>$endfor$</nav>
+$if(alt-href)$    <span class="lang"><a href="$alt-href$" hreflang="$alt-lang$" lang="$alt-lang$">$alt-label$</a></span>
+$endif$  </div>
+$if(eyebrow)$  <div class="eyebrow">$eyebrow$</div>
+$endif$  <h1>$title$</h1>
+$if(subtitle)$  <p class="lede">$subtitle$</p>
+$endif$</header>
+$body$
+<footer class="site">
+  <p>$footer$</p>
+$if(credits)$  <p>$credits$</p>
+$endif$</footer>
+</main>
+$if(player)$<script src="bc101.js"></script>
+<script src="player.js"></script>
+$endif$</body>
+</html>

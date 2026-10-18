@@ -7,8 +7,9 @@ and the page loads nothing from the net.
 Usage (after `make preview`, from any directory):
     python3 tools/flipbook.py <spec.json> <out.html>
 
-The spec names the scenes, frame rates, timeline marks and notes; tools/flipbook.json is the
-example. Frames go to build/flipbook/<scene>/ as BMP and are embedded as PNG data URIs.
+The spec names the scenes, frame rates, timeline marks and notes; tools/flipbook.{en,de}.json
+are the two languages of the site. Frames go to build/flipbook/<scene>/ as BMP and are embedded
+as PNG data URIs; the page shares web/style.css with the site, inlined.
 """
 import base64
 import html
@@ -22,6 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PREVIEW = ROOT / "build" / "preview"
+CSS = ROOT / "web" / "style.css"
 FRAMES = ROOT / "build" / "flipbook"
 # Sample 1 ms after each frame time: a scene stepped at the same rate (crt at 12.5 fps) must
 # not be sampled exactly on its step boundaries, where float rounding picks the previous step.
@@ -94,8 +96,17 @@ def section(seq, n):
       <span id="{sid}-readout" class="readout"></span>
     </div>
     <div id="{sid}-timeline" class="timeline" aria-hidden="true"></div>
-    {f'<dl class="facts">{notes}</dl>' if notes else ''}
+    {f'<div class="facts"><dl>{notes}</dl></div>' if notes else ''}
   </section>"""
+
+
+def topbar(spec):
+    nav = "".join(f'<a href="{esc(n["href"])}"{" aria-current=\"page\"" if n.get("current") else ""}>{esc(n["label"])}</a>'
+                  for n in spec.get("nav", []))
+    alt = spec.get("alt")
+    lang = (f'<span class="lang"><a href="{esc(alt["href"])}" hreflang="{esc(alt["lang"])}" lang="{esc(alt["lang"])}">'
+            f'{esc(alt["label"])}</a></span>' if alt else "")
+    return f'<div class="topbar"><nav aria-label="site">{nav}</nav>{lang}</div>' if nav or lang else ""
 
 
 def main():
@@ -121,11 +132,14 @@ def main():
         "EYEBROW": esc(spec.get("eyebrow", "")),
         "LEDE": esc(spec.get("lede", "")),
         "FOOTER": esc(spec.get("footer", "")),
+        "CREDITS": esc(spec.get("credits", "")),
+        "TOPBAR": topbar(spec),
+        "CSS": CSS.read_text(encoding="utf-8"),
         "SECTIONS": "".join(sections),
         "SEQS": json.dumps(seqs).replace("</", "<\\/"),  # keep a label from closing the <script>
     }
     # one pass, so that spec text containing a placeholder is never substituted again
-    out = re.sub(r"\{\{(LANG|TITLE|EYEBROW|LEDE|FOOTER|SECTIONS)\}\}|/\*SEQS\*/",
+    out = re.sub(r"\{\{(LANG|TITLE|EYEBROW|LEDE|FOOTER|CREDITS|TOPBAR|CSS|SECTIONS)\}\}|/\*SEQS\*/",
                  lambda m: fills[m.group(1) or "SEQS"], tpl)
     Path(sys.argv[2]).write_text(out, encoding="utf-8")
     print(f"{sys.argv[2]}: {len(out.encode()) / 1e6:.1f} MB", file=sys.stderr)
