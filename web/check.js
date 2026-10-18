@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Smoke test for the WebAssembly build: loads bc101.js under Node, plays one second of every
-// scene and fails if a scene draws nothing or a frame takes longer than the Pi's 20 ms budget
-// (which on a workstation means something is badly wrong).
+// scene after one warm-up frame and fails if a scene draws nothing or a frame takes longer than
+// the Pi's 20 ms budget (which on a workstation means something is badly wrong).
 //   node web/check.js build/site/bc101.js
 const createBC101 = require(require("path").resolve(process.argv[2]));
 createBC101().then(m => {
@@ -11,6 +11,7 @@ createBC101().then(m => {
   let bad = 0;
   for (let i = 0; i < m._web_scene_count(); i++) {
     start(i, 1);
+    step(0.02); // the first frame also pays for the JIT (36 ms on a cold runner): drawn, not timed
     let p = 0, worst = 0;
     for (let k = 0; k < 50; k++) {
       const t0 = process.hrtime.bigint();
