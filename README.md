@@ -48,11 +48,11 @@ vc4.tv_norm=PAL video=Composite-1:720x288@50,margin_left=56,margin_right=40,marg
 
 ```sh
 make               # bc101 plus the two fonts it needs, extracted from the console fonts
-tools/install.sh   # make, install the systemd unit, restart, check that it stays up
+tools/install.sh   # make, restart the service, check that it stays up
 ```
 
-The unit starts the show on tty1 at boot; install.sh writes the install directory and its
-owner into it. With the remote installed (`scripts/deploy.sh --setup`, once) the show lives in
+The unit starts the show on tty1 at boot; scripts/deploy.sh renders it with the install
+directory and its owner and installs it. With the remote installed (`scripts/deploy.sh --setup`, once) the show lives in
 `/opt/tvtv`, owned by the service user `tv`, and runs as that user inside a systemd sandbox:
 no network, read-only file system, only the framebuffer and tty1.
 
@@ -181,7 +181,7 @@ src/tvctl.c           tvctl: ctl and zapper as a client without scene code
 src/scenes/*.c        one file per scene
 slides/*.txt          German text of the slide decks (data, not code)
 system/               systemd unit template (sandboxed) and the sshd drop-in for user tv
-tools/install.sh      on the Pi: make, install unit, restart, check it stays up
+tools/install.sh      on the Pi: make, restart, check it stays up
 tools/setup-remote.sh on the Pi, once: user tv, /opt/tvtv, dispatcher, keys file, sshd
 tools/tv-dispatch     what `ssh tv` runs: commands, the zapper, uploads with rollback
 tools/tv-keys.sh      on the Pi: keys and roles for the remote

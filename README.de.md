@@ -50,11 +50,11 @@ vc4.tv_norm=PAL video=Composite-1:720x288@50,margin_left=56,margin_right=40,marg
 
 ```sh
 make               # bc101 plus die zwei Fonts, aus den Konsolenfonts extrahiert
-tools/install.sh   # make, systemd-Unit installieren, neu starten, prüfen, dass es läuft
+tools/install.sh   # make, Dienst neu starten, prüfen, dass es läuft
 ```
 
-Die Unit startet die Show beim Booten auf tty1; install.sh trägt Installationsverzeichnis und
-Besitzer ein. Mit eingerichteter Fernbedienung (`scripts/deploy.sh --setup`, einmalig) liegt die
+Die Unit startet die Show beim Booten auf tty1; scripts/deploy.sh trägt Installationsverzeichnis
+und Besitzer ein und installiert sie. Mit eingerichteter Fernbedienung (`scripts/deploy.sh --setup`, einmalig) liegt die
 Show in `/opt/tvtv`, gehört dem Dienstnutzer `tv` und läuft als dieser in einer
 systemd-Sandbox: kein Netz, schreibgeschütztes Dateisystem, nur Framebuffer und tty1.
 
@@ -184,7 +184,7 @@ src/tvctl.c           tvctl: ctl und Zapper als Client ohne Szenencode
 src/scenes/*.c        eine Datei je Szene
 slides/*.txt          deutscher Text der Folien-Decks (Daten, kein Code)
 system/               systemd-Unit-Vorlage (Sandbox) und das sshd-Drop-in für den Nutzer tv
-tools/install.sh      auf dem Pi: make, Unit installieren, neu starten, prüfen
+tools/install.sh      auf dem Pi: make, neu starten, prüfen
 tools/setup-remote.sh auf dem Pi, einmalig: Nutzer tv, /opt/tvtv, Dispatcher, Schlüsseldatei, sshd
 tools/tv-dispatch     was `ssh tv` ausführt: Befehle, der Zapper, Uploads mit Rollback
 tools/tv-keys.sh      auf dem Pi: Schlüssel und Rollen für die Fernbedienung

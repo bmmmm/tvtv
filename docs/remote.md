@@ -65,16 +65,20 @@ an SSH app on a phone. `tvctl remote --ascii` for terminals without the glyphs.
 ## Setup, once
 
 ```sh
-scripts/deploy.sh --setup                       # from the workstation
-ssh tvtv-deploy sudo tv-keys add alice admin < ~/.ssh/id_ed25519_tv.pub
+scripts/deploy.sh --setup                       # from the workstation; sudo asks for its password
+ssh <pi> sudo tv-keys add alice admin < ~/.ssh/id_ed25519_tv.pub
 ```
 
 `tools/setup-remote.sh` (what `--setup` runs on the Pi, as root, idempotent) creates the system
 user `tv` (groups `video`, `tty`), moves the show to `/opt/tvtv` owned by `tv`, installs the
 dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the empty keys file
-`/etc/tvtv/authorized_keys` and the sshd drop-in `system/sshd-tv.conf`, checks it with
-`sshd -t`, reloads sshd and runs `tools/install.sh` (build as `tv`, unit, restart, health check).
-From then on plain `scripts/deploy.sh` targets `/opt/tvtv`. On your machine:
+`/etc/tvtv/authorized_keys`, the sshd drop-in `system/sshd-tv.conf` (checked with `sshd -t`,
+then reloaded) and the systemd unit, and runs `tools/install.sh` (build as `tv`, restart,
+health check). The deploying login (`BC101_HOST`, by default `tvtv-deploy`) gets exact sudo
+rules in `/etc/sudoers.d/tvtv-deploy`: `rsync` and `make` as `tv`, the unit file from stdin,
+`systemctl` for the service, `tv-keys`. The setup itself needs a login that may sudo with a
+password; `BC101_SETUP_HOST` names it if that is not the deploying login. From then on plain
+`scripts/deploy.sh` targets `/opt/tvtv` without prompts. On your machine:
 
 ```
 Host tv
@@ -125,6 +129,11 @@ leaves `visuals/` alone.
   Pi worth having, but hand admin keys out accordingly, and `tv-keys rm` when in doubt.
 - The dispatcher's own client is `tvctl`, built without scene code, so a visual cannot take
   down the hand that controls it; the health check uses it too.
+- The deploy path does not lead from `tv` to root: the unit file is rendered on the
+  workstation and sent as is, the deploying login may only run `rsync` and `make` as `tv`
+  plus fixed `systemctl` commands, and the setup refuses to run from a tree `tv` owns. What
+  remains is that a visual's test run happens outside the sandbox, as `tv`; a process it
+  leaves behind has `tv`'s rights and nothing more.
 
 ## For developers
 
