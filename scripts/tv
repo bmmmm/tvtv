@@ -5,9 +5,9 @@
 #   tv 7 | tv next | tv auto | tv status | tv list | tv log | tv tune fire | tv play testcard 30
 #   tv upload foo.c          a new visual (admin key); the channel's name is the file's name
 #   tv rm foo | tv fetch foo > foo.c
-# TV_HOST is the ssh destination (default: tv, an alias in ~/.ssh/config with User tv).
+# TV_HOST is the ssh destination (default: zapper, an alias in ~/.ssh/config with User zapper).
 set -euo pipefail
-host=${TV_HOST:-tv}
+host=${TV_HOST:-zapper}
 case ${1:-} in
   "") exec ssh -t "$host" ;;
   upload)

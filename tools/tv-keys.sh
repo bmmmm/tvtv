@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Keys for the remote; run as root on the Pi (tools/setup-remote.sh installs it as tv-keys).
-# One line per person in /etc/tvtv/authorized_keys, which sshd reads for user tv:
+# One line per person in /etc/tvtv/authorized_keys, which sshd reads for the remote's user (zapper):
 #   restrict,pty <type> <key> <who> <role>      role: op (zap) or admin (zap, upload, rm, fetch)
 # Usage: tv-keys add <who> <op|admin> [pubkey-file]   (stdin without a file: ssh pi sudo tv-keys add bob op < bob.pub)
 #        tv-keys rm <who>
@@ -14,7 +14,7 @@ usage() {
   exit 2
 }
 
-write_keys() { # stdin -> $KEYS, atomically, world-readable (sshd reads it as user tv)
+write_keys() { # stdin -> $KEYS, atomically, world-readable (sshd reads it as the remote's user)
   local tmp
   tmp=$(mktemp "$(dirname "$KEYS")/.keys.XXXXXX")
   cat > "$tmp"

@@ -8,13 +8,13 @@ channels 30 and up. Nothing here needs sudo and nothing opens a new port: it is 
 dedicated user and one dispatcher script.
 
 ```
-ssh tv                      the zapper (below)
-ssh tv 7                    channel 7, held until the next command
-ssh tv next | auto          skip | back to the loop
-ssh tv play testcard 30     show something once, for 30 s
-ssh tv status | list | log
-ssh tv upload foo < foo.c   admin: a new visual, channel 30+
-ssh tv rm foo | fetch foo   admin: delete | download the source
+ssh zapper                      the zapper (below)
+ssh zapper 7                    channel 7, held until the next command
+ssh zapper next | auto          skip | back to the loop
+ssh zapper play testcard 30     show something once, for 30 s
+ssh zapper status | list | log
+ssh zapper upload foo < foo.c   admin: a new visual, channel 30+
+ssh zapper rm foo | fetch foo   admin: delete | download the source
 ```
 
 `scripts/tv` wraps this for your own machine: `tv`, `tv 7`, `tv upload foo.c`.
@@ -70,20 +70,20 @@ ssh <pi> sudo tv-keys add alice admin < ~/.ssh/id_ed25519_tv.pub
 ```
 
 `tools/setup-remote.sh` (what `--setup` runs on the Pi, as root, idempotent) creates the system
-user `tv` (groups `video`, `tty`), moves the show to `/opt/tvtv` owned by `tv`, installs the
+user `zapper` (groups `video`, `tty`), moves the show to `/opt/tvtv` owned by `zapper`, installs the
 dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the empty keys file
 `/etc/tvtv/authorized_keys`, the sshd drop-in `system/sshd-tv.conf` (checked with `sshd -t`,
-then reloaded) and the systemd unit, and runs `tools/install.sh` (build as `tv`, restart,
+then reloaded) and the systemd unit, and runs `tools/install.sh` (build as `zapper`, restart,
 health check). The deploying login (`BC101_HOST`, by default `tvtv-deploy`) gets exact sudo
-rules in `/etc/sudoers.d/tvtv-deploy`: `rsync` and `make` as `tv`, the unit file from stdin,
+rules in `/etc/sudoers.d/tvtv-deploy`: `rsync` and `make` as `zapper`, the unit file from stdin,
 `systemctl` for the service, `tv-keys`. The setup itself needs a login that may sudo with a
 password; `BC101_SETUP_HOST` names it if that is not the deploying login. From then on plain
 `scripts/deploy.sh` targets `/opt/tvtv` without prompts. On your machine:
 
 ```
-Host tv
+Host zapper
     HostName <the pi>
-    User tv
+    User zapper
     IdentityFile ~/.ssh/id_ed25519_tv
 ```
 
@@ -113,27 +113,27 @@ leaves `visuals/` alone.
 
 ## What is and is not protected
 
-- The user `tv` can run exactly one program, the dispatcher, with a key only: `ForceCommand`,
+- The user `zapper` can run exactly one program, the dispatcher, with a key only: `ForceCommand`,
   `AuthenticationMethods publickey`, no forwarding, no `~/.ssh/rc`. The keys file, the sshd
   drop-in and the dispatcher are root-owned; sshd names the key that logged in
   (`ExposeAuthInfo`), and the dispatcher takes the role from that line.
 - The dispatcher parses the command with a whitelist (letters, digits, space, `.`, `_`, `-`,
   at most 80 characters) before anything else happens; names and numbers are checked against
   patterns; nothing is passed to a shell.
-- The show runs as `tv`, not root, inside a systemd sandbox: no network, read-only file system
+- The show runs as `zapper`, not root, inside a systemd sandbox: no network, read-only file system
   including its own directory, only `/dev/fb0` and `/dev/tty1`, no new privileges, a syscall
   filter (`systemd-analyze security bc101` says 0.8, SAFE). That is the real protection
-  behind uploads: a visual is code, and code from an admin key runs as `tv` with exactly
+  behind uploads: a visual is code, and code from an admin key runs as `zapper` with exactly
   those rights.
-- An admin key therefore means: can run code as `tv` on the Pi. There is nothing else on the
+- An admin key therefore means: can run code as `zapper` on the Pi. There is nothing else on the
   Pi worth having, but hand admin keys out accordingly, and `tv-keys rm` when in doubt.
 - The dispatcher's own client is `tvctl`, built without scene code, so a visual cannot take
   down the hand that controls it; the health check uses it too.
-- The deploy path does not lead from `tv` to root: the unit file is rendered on the
-  workstation and sent as is, the deploying login may only run `rsync` and `make` as `tv`
-  plus fixed `systemctl` commands, and the setup refuses to run from a tree `tv` owns. What
-  remains is that a visual's test run happens outside the sandbox, as `tv`; a process it
-  leaves behind has `tv`'s rights and nothing more.
+- The deploy path does not lead from `zapper` to root: the unit file is rendered on the
+  workstation and sent as is, the deploying login may only run `rsync` and `make` as `zapper`
+  plus fixed `systemctl` commands, and the setup refuses to run from a tree `zapper` owns. What
+  remains is that a visual's test run happens outside the sandbox, as `zapper`; a process it
+  leaves behind has `zapper`'s rights and nothing more.
 
 ## For developers
 

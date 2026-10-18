@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # One-time setup of the remote on the Pi; run as root, safe to run again. Creates the service user
-# tv, moves the show to /opt/tvtv (owned by tv), installs the dispatcher, the keys file, the sshd
-# drop-in and the systemd unit, gives the deploying user exact sudo rules for later deploys, then
-# builds and (re)starts the service through tools/install.sh.
+# zapper (TVTV_USER to change it), moves the show to /opt/tvtv (owned by it), installs the
+# dispatcher, the keys file, the sshd drop-in and the systemd unit, gives the deploying user exact
+# sudo rules for later deploys, then builds and (re)starts the service through tools/install.sh.
 # Called by `scripts/deploy.sh --setup`; by hand: sudo tools/setup-remote.sh [--deployer <user>]
-# (from a synced copy that does not belong to tv). The deployer defaults to the sudo caller.
+# (from a synced copy that does not belong to the service user). The deployer defaults to the
+# sudo caller.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SRC=$PWD
 DEST=${TVTV_HOME:-/opt/tvtv}
+U=${TVTV_USER:-zapper} # the service user: runs the show and takes the ssh commands
 LIB=/usr/local/lib/tvtv
 deployer=${SUDO_USER:-}
 if [[ ${1:-} == --deployer && -n ${2:-} ]]; then deployer=$2; fi
@@ -22,20 +24,30 @@ if ! sshd -T 2> /dev/null | grep -qi '^exposeauthinfo'; then
   echo "this sshd lacks ExposeAuthInfo (OpenSSH >= 7.6 needed)" >&2
   exit 1
 fi
-if [[ $(stat -c %U "$SRC") == tv ]]; then
-  echo "run the setup from a copy that does not belong to tv (scripts/deploy.sh --setup)" >&2
+if [[ $(stat -c %U "$SRC") == "$U" ]]; then
+  echo "run the setup from a copy that does not belong to $U (scripts/deploy.sh --setup)" >&2
   exit 1
 fi
 
-if ! getent passwd tv > /dev/null; then
-  useradd --system --user-group --home-dir "$DEST" --no-create-home --shell /bin/sh tv
-  echo "user tv created"
+# The account must be ours: a person's login of that name would be locked into the dispatcher.
+if uid=$(id -u "$U" 2> /dev/null); then
+  if ((uid >= 1000)) || [[ $(getent passwd "$U" | cut -d: -f6) == /home/* ]]; then
+    echo "user $U exists and looks like a person's login; pick another name: TVTV_USER=<name>" >&2
+    exit 1
+  fi
+else
+  useradd --system --user-group --home-dir "$DEST" --no-create-home --shell /bin/sh "$U"
+  echo "user $U created"
 fi
-usermod -aG video,tty tv
+usermod -aG video,tty "$U"
+if [[ -n $deployer && $deployer == "$U" ]]; then
+  echo "the deploying user cannot be the service user" >&2
+  exit 1
+fi
 
-install -d -m 0755 -o tv -g tv "$DEST" "$DEST/visuals"
+install -d -m 0755 -o "$U" -g "$U" "$DEST" "$DEST/visuals"
 if [[ $SRC != "$DEST" ]]; then
-  rsync -a --delete --chown=tv:tv src slides system tools Makefile "$DEST/"
+  rsync -a --delete --chown="$U:$U" src slides system tools Makefile "$DEST/"
   echo "show copied to $DEST"
 fi
 
@@ -45,22 +57,25 @@ install -D -m 0755 tools/tv-dispatch "$LIB/tv-dispatch"
 install -m 0755 tools/tv-keys.sh /usr/local/sbin/tv-keys
 
 conf=/etc/ssh/sshd_config.d/50-tvtv.conf
-if ! cmp -s system/sshd-tv.conf "$conf"; then
-  install -D -m 0644 system/sshd-tv.conf "$conf"
+drop=$(mktemp)
+sed "s|^Match User zapper$|Match User $U|" system/sshd-tv.conf > "$drop"
+if ! cmp -s "$drop" "$conf"; then
+  install -D -m 0644 "$drop" "$conf"
   if ! sshd -t; then
     rm -f "$conf"
     echo "sshd rejects the drop-in; removed it again" >&2
     exit 1
   fi
   systemctl reload ssh 2> /dev/null || systemctl reload sshd
-  echo "sshd: user tv restricted to the dispatcher"
+  echo "sshd: user $U restricted to the dispatcher"
 fi
+rm -f "$drop"
 
-# The unit, from this copy (not from the tree tv owns).
-sed "s|@BC101_DIR@|$DEST|g; s|@BC101_USER@|tv|g" system/bc101.service > /etc/systemd/system/bc101.service
+# The unit, from this copy (not from the tree the service user owns).
+sed "s|@BC101_DIR@|$DEST|g; s|@BC101_USER@|$U|g" system/bc101.service > /etc/systemd/system/bc101.service
 
-# Exact sudo rules for the deploying user: build and sync as tv, the unit file from stdin,
-# the service, the keys. Nothing that runs a file tv can write.
+# Exact sudo rules for the deploying user: build and sync as the service user, the unit file
+# from stdin, the service, the keys. Nothing that runs a file the service user can write.
 if [[ -n $deployer && $deployer != root ]] && getent passwd "$deployer" > /dev/null; then
   rules=$(mktemp)
   cat > "$rules" <<RULES
@@ -70,7 +85,7 @@ Cmnd_Alias TVTV_ROOT = $(command -v tee) /etc/systemd/system/bc101.service, \\
     $(command -v systemctl) daemon-reload, $(command -v systemctl) enable --quiet bc101, \\
     $(command -v systemctl) restart bc101, $(command -v systemctl) stop bc101, \\
     $(command -v systemctl) start bc101, /usr/local/sbin/tv-keys
-$deployer ALL=(tv) NOPASSWD: TVTV_AS_TV
+$deployer ALL=($U) NOPASSWD: TVTV_AS_TV
 $deployer ALL=(root) NOPASSWD: TVTV_ROOT
 RULES
   if visudo -c -q -f "$rules"; then
@@ -90,7 +105,7 @@ cat <<TXT
 
 remote ready. Next:
   key:    ssh <pi> sudo tv-keys add <who> admin < <who>.pub      (or op: zap only)
-  ssh:    Host tv / HostName <this pi> / User tv / IdentityFile ~/.ssh/<key>   in ~/.ssh/config
-  use:    ssh tv          the zapper        ssh tv 7 | next | status | help
+  ssh:    Host zapper / HostName <this pi> / User $U / IdentityFile ~/.ssh/<key>   in ~/.ssh/config
+  use:    ssh zapper      the zapper        ssh zapper 7 | next | status | help
   log:    journalctl -t tvtv
 TXT

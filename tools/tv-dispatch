@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The remote's SSH entry point. sshd runs it as ForceCommand for user tv (system/sshd-tv.conf), so a
+# The remote's SSH entry point. sshd runs it as ForceCommand for user zapper (system/sshd-tv.conf), so a
 # key for that user can do exactly what is listed here and nothing else:
-#   ssh tv                        the zapper (a terminal is needed: ssh -t from scripts)
-#   ssh tv 7  |  ssh tv 07        switch to channel 7 and hold it
-#   ssh tv status | list | log | next | auto | help
-#   ssh tv tune <ch|name>  |  hold <ch|name>  |  play <ch|name> [seconds]
-#   ssh tv upload <name> < name.c  |  rm <name>  |  fetch <name>        admin keys only
+#   ssh zapper                        the zapper (a terminal is needed: ssh -t from scripts)
+#   ssh zapper 7  |  ssh zapper 07        switch to channel 7 and hold it
+#   ssh zapper status | list | log | next | auto | help
+#   ssh zapper tune <ch|name>  |  hold <ch|name>  |  play <ch|name> [seconds]
+#   ssh zapper upload <name> < name.c  |  rm <name>  |  fetch <name>        admin keys only
 # Roles: a key's line in /etc/tvtv/authorized_keys ends in "<who> <op|admin>" (tools/tv-keys.sh);
-# sshd tells us which key logged in (ExposeAuthInfo). Run by hand, e.g. from the console as user tv,
+# sshd tells us which key logged in (ExposeAuthInfo). Run by hand, e.g. from the console as user zapper,
 # the command comes from the arguments and TVTV_ROLE/TVTV_WHO may set the role.
 # Uploads: the file must be C that defines `const Scene scene_<name>`; it is built, run offscreen
 # through its whole length (tools/preview.c bench), and only then does the show restart on the new
@@ -72,7 +72,7 @@ kind_of() { "$BIN" -l 2>/dev/null | awk -v n="$1" '$2 == n { print $NF; exit }';
 
 help() {
   cat <<'TXT'
-tvtv remote -- ssh tv [command]
+tvtv remote -- ssh zapper [command]
   (nothing)                 the zapper, a remote control in your terminal
   7  or  07                 channel 7, held until next/auto
   next | auto               skip | back to the loop
@@ -166,7 +166,7 @@ upload() {
   trap 'rm -f "$tmp"' EXIT
   head -c $((MAX_UPLOAD + 1)) > "$tmp"
   size=$(stat -c %s "$tmp")
-  ((size > 0)) || die 2 "nothing on stdin -- use: ssh tv upload $name < $name.c"
+  ((size > 0)) || die 2 "nothing on stdin -- use: ssh zapper upload $name < $name.c"
   ((size <= MAX_UPLOAD)) || die 2 "more than $MAX_UPLOAD bytes"
   [[ $(LC_ALL=C tr -d '\011\012\015\040-\176\200-\377' < "$tmp" | wc -c) -eq 0 ]] || die 2 "not a text file"
   grep -Eq "^const Scene scene_${name}[[:space:]]*=" "$tmp" ||
@@ -190,7 +190,7 @@ upload() {
 remove() {
   local name=$1
   valid_name "$name" || die 2 "bad name"
-  [[ -f $TVTV_HOME/visuals/$name.c ]] || die 1 "no visual '$name' (ssh tv list)"
+  [[ -f $TVTV_HOME/visuals/$name.c ]] || die 1 "no visual '$name' (ssh zapper list)"
   # if it is on air, move on first; the restart then has nothing to resume
   if ctl status 2>/dev/null | grep -q "^scene=$name "; then
     ctl next > /dev/null 2>&1 || true
@@ -246,5 +246,5 @@ case ${a[0]:-} in
   upload) need_admin upload; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: upload <name> < name.c"; upload "${a[1]}" ;;
   rm) need_admin rm; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: rm <name>"; remove "${a[1]}" ;;
   fetch) need_admin fetch; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: fetch <name>"; fetch "${a[1]}" ;;
-  *) die 2 "unknown command '${a[0]}' -- ssh tv help" ;;
+  *) die 2 "unknown command '${a[0]}' -- ssh zapper help" ;;
 esac

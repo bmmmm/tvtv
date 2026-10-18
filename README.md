@@ -16,7 +16,7 @@ WebAssembly. The site also has a frame-by-frame
 [whitepaper](https://bmmmm.github.io/tvtv/whitepaper.html) (HTML and PDF, English and German)
 on how the show works and how it was made.
 
-The show has a remote control: `ssh tv` opens a zapper in your terminal, LED digits and
+The show has a remote control: `ssh zapper` opens a zapper in your terminal, LED digits and
 all, and members with a key switch channels, hold one, or upload their own visual in C,
 which becomes a channel of its own. See "Remote control" below and [docs/remote.md](docs/remote.md).
 
@@ -53,7 +53,7 @@ tools/install.sh   # make, restart the service, check that it stays up
 
 The unit starts the show on tty1 at boot; scripts/deploy.sh renders it with the install
 directory and its owner and installs it. With the remote installed (`scripts/deploy.sh --setup`, once) the show lives in
-`/opt/tvtv`, owned by the service user `tv`, and runs as that user inside a systemd sandbox:
+`/opt/tvtv`, owned by the service user `zapper`, and runs as that user inside a systemd sandbox:
 no network, read-only file system, only the framebuffer and tty1.
 
 **From a workstation** the repo is the source of truth and the Pi only receives copies:
@@ -85,14 +85,14 @@ boot? `sudo ~/tvtv/tools/boot-report.sh` writes timings and network logs to a fr
 ## Remote control
 
 ```sh
-ssh tv                    # the zapper: digits pick a channel, arrows zap, Enter holds, n next
-ssh tv 7                  # or one command: channel 7 and hold it
-ssh tv next | auto | status | list | play testcard 30
-ssh tv upload foo < foo.c # admin keys: a new visual, channel 30+; rm foo | fetch foo
+ssh zapper                    # the zapper: digits pick a channel, arrows zap, Enter holds, n next
+ssh zapper 7                  # or one command: channel 7 and hold it
+ssh zapper next | auto | status | list | play testcard 30
+ssh zapper upload foo < foo.c # admin keys: a new visual, channel 30+; rm foo | fetch foo
 ```
 
 Every scene has a channel number: 00 standby (black), 01–17 the loop, 20–22 the extras,
-30 and up the uploaded visuals. The user `tv` on the Pi can run exactly one program, the
+30 and up the uploaded visuals. The user `zapper` on the Pi can run exactly one program, the
 dispatcher, with a key only; keys come in two roles (`tv-keys add <who> op|admin`). An
 upload is compiled, run offscreen through its whole length and only then swapped in; if the
 show does not come back, the previous build returns. `scripts/tv` wraps the ssh calls, and
@@ -180,10 +180,10 @@ src/remote.c          the zapper, a remote control drawn in the terminal
 src/tvctl.c           tvctl: ctl and zapper as a client without scene code
 src/scenes/*.c        one file per scene
 slides/*.txt          German text of the slide decks (data, not code)
-system/               systemd unit template (sandboxed) and the sshd drop-in for user tv
+system/               systemd unit template (sandboxed) and the sshd drop-in for user zapper
 tools/install.sh      on the Pi: make, restart, check it stays up
-tools/setup-remote.sh on the Pi, once: user tv, /opt/tvtv, dispatcher, keys file, sshd
-tools/tv-dispatch     what `ssh tv` runs: commands, the zapper, uploads with rollback
+tools/setup-remote.sh on the Pi, once: user zapper, /opt/tvtv, dispatcher, keys file, sshd
+tools/tv-dispatch     what `ssh zapper` runs: commands, the zapper, uploads with rollback
 tools/tv-keys.sh      on the Pi: keys and roles for the remote
 tools/gen-visuals.sh  generates build/visuals.c, the table of uploaded visuals
 tools/boot-report.sh  on the Pi: boot timing and network logs

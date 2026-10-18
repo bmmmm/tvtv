@@ -17,7 +17,7 @@ aus, übersetzt nach WebAssembly. Dazu gibt es ein
 [Whitepaper](https://bmmmm.github.io/tvtv/whitepaper.de.html) (HTML und PDF, Deutsch und
 Englisch) darüber, wie die Show funktioniert und wie sie entstand.
 
-Die Show hat eine Fernbedienung: `ssh tv` öffnet einen Zapper im Terminal, mit LED-Ziffern
+Die Show hat eine Fernbedienung: `ssh zapper` öffnet einen Zapper im Terminal, mit LED-Ziffern
 und allem, und Mitglieder mit Schlüssel schalten Programme um, halten eines fest oder laden ein
 eigenes Visual in C hoch, das zum eigenen Kanal wird. Siehe „Fernbedienung“ unten und
 [docs/remote.md](docs/remote.md) (Englisch).
@@ -55,7 +55,7 @@ tools/install.sh   # make, Dienst neu starten, prüfen, dass es läuft
 
 Die Unit startet die Show beim Booten auf tty1; scripts/deploy.sh trägt Installationsverzeichnis
 und Besitzer ein und installiert sie. Mit eingerichteter Fernbedienung (`scripts/deploy.sh --setup`, einmalig) liegt die
-Show in `/opt/tvtv`, gehört dem Dienstnutzer `tv` und läuft als dieser in einer
+Show in `/opt/tvtv`, gehört dem Dienstnutzer `zapper` und läuft als dieser in einer
 systemd-Sandbox: kein Netz, schreibgeschütztes Dateisystem, nur Framebuffer und tty1.
 
 **Vom Arbeitsrechner aus** ist das Repo die Quelle der Wahrheit, der Pi bekommt nur Kopien:
@@ -87,14 +87,14 @@ frisches `/tmp/boot-report.XXXXXX` und nennt den Namen (passwortartige Werte ges
 ## Fernbedienung
 
 ```sh
-ssh tv                    # der Zapper: Ziffern wählen ein Programm, Pfeile zappen, Enter hält, n weiter
-ssh tv 7                  # oder ein Befehl: Programm 7, festgehalten
-ssh tv next | auto | status | list | play testcard 30
-ssh tv upload foo < foo.c # Admin-Schlüssel: neues Visual, Kanal 30+; rm foo | fetch foo
+ssh zapper                    # der Zapper: Ziffern wählen ein Programm, Pfeile zappen, Enter hält, n weiter
+ssh zapper 7                  # oder ein Befehl: Programm 7, festgehalten
+ssh zapper next | auto | status | list | play testcard 30
+ssh zapper upload foo < foo.c # Admin-Schlüssel: neues Visual, Kanal 30+; rm foo | fetch foo
 ```
 
 Jede Szene hat eine Programmnummer: 00 Standby (schwarz), 01–17 die Schleife, 20–22 die
-Extras, ab 30 die hochgeladenen Visuals. Der Nutzer `tv` auf dem Pi darf genau ein Programm
+Extras, ab 30 die hochgeladenen Visuals. Der Nutzer `zapper` auf dem Pi darf genau ein Programm
 ausführen, den Dispatcher, und das nur mit Schlüssel; Schlüssel gibt es in zwei Rollen
 (`tv-keys add <wer> op|admin`). Ein Upload wird kompiliert, offscreen in voller Länge
 durchgespielt und erst dann eingetauscht; kommt die Show nicht zurück, kehrt der vorherige
@@ -183,10 +183,10 @@ src/remote.c          der Zapper, eine Fernbedienung im Terminal
 src/tvctl.c           tvctl: ctl und Zapper als Client ohne Szenencode
 src/scenes/*.c        eine Datei je Szene
 slides/*.txt          deutscher Text der Folien-Decks (Daten, kein Code)
-system/               systemd-Unit-Vorlage (Sandbox) und das sshd-Drop-in für den Nutzer tv
+system/               systemd-Unit-Vorlage (Sandbox) und das sshd-Drop-in für den Nutzer zapper
 tools/install.sh      auf dem Pi: make, neu starten, prüfen
-tools/setup-remote.sh auf dem Pi, einmalig: Nutzer tv, /opt/tvtv, Dispatcher, Schlüsseldatei, sshd
-tools/tv-dispatch     was `ssh tv` ausführt: Befehle, der Zapper, Uploads mit Rollback
+tools/setup-remote.sh auf dem Pi, einmalig: Nutzer zapper, /opt/tvtv, Dispatcher, Schlüsseldatei, sshd
+tools/tv-dispatch     was `ssh zapper` ausführt: Befehle, der Zapper, Uploads mit Rollback
 tools/tv-keys.sh      auf dem Pi: Schlüssel und Rollen für die Fernbedienung
 tools/gen-visuals.sh  erzeugt build/visuals.c, die Tabelle der hochgeladenen Visuals
 tools/boot-report.sh  auf dem Pi: Boot-Zeiten und Netzwerk-Logs

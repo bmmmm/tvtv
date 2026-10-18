@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The zapper: the show's remote control, drawn in the terminal over the control socket (ctl.h).
-// tools/tv-dispatch starts it for a plain `ssh tv`; by hand: bc101 remote -s <socket>.
+// tools/tv-dispatch starts it for a plain `ssh zapper`; by hand: bc101 remote -s <socket>.
 //   bc101 remote [-s socket] [--admin] [--name who] [--frame] [--ascii] [--no-color]
 // Keys: 0-9 channel (two digits, like a TV set), up/down or +/- zap, Enter or Space hold/auto,
 //       n next, a auto, i info (fps per channel), u upload hint, x delete a visual (admin),
@@ -558,11 +558,11 @@ static int read_key(int timeout_ms) {
 static void delete_visual(const char *name) {
     const char *d = getenv("TVTV_DISPATCH");
     if (!d || !*d) {
-        say("löschen geht hier nur so: ssh tv rm %s", name);
+        say("löschen geht hier nur so: ssh zapper rm %s", name);
         return;
     }
     raw_off();
-    printf("\x1b[2J\x1b[H$ tv rm %s\n", name);
+    printf("\x1b[2J\x1b[H$ zapper rm %s\n", name);
     fflush(stdout);
     pid_t pid = fork();
     if (pid == 0) {
@@ -616,7 +616,7 @@ static void handle_key(int k, double tnow) {
         break;
     case '?': case 'h': R.view = R.view == V_HELP ? V_MAIN : V_HELP; break;
     case 'u':
-        say(R.admin ? "vom Rechner: ssh tv upload <name> < <name>.c" : "Upload nur mit Admin-Key");
+        say(R.admin ? "vom Rechner: ssh zapper upload <name> < <name>.c" : "Upload nur mit Admin-Key");
         break;
     case 'x': {
         const Chan *c = chan(R.cur);
