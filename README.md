@@ -8,6 +8,8 @@ flower power, synthwave, a 3D cathode ray tube, Bernd das Brot as the DVD logo, 
 narrated slide decks that explain how it all works. Every pixel is computed in C and written
 straight into the framebuffer: no X, no image files, 50 frames per second on one 700 MHz core.
 
+![The cathode ray tube scene, as rendered for the website](https://bmmmm.github.io/tvtv/img/crt.png)
+
 **Watch it in the browser:** <https://bmmmm.github.io/tvtv/> runs the same C code compiled to
 WebAssembly. The site also has a frame-by-frame
 [flipbook](https://bmmmm.github.io/tvtv/flipbook.html) and the

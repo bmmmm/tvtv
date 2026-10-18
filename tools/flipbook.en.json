@@ -1,9 +1,9 @@
 {
   "SPDX-License-Identifier": "CC-BY-4.0",
   "lang": "en",
-  "title": "Tube & Bread",
+  "title": "Frame by frame",
   "eyebrow": "bc101 · Raspberry Pi 1 · 360 × 288 · PAL 50 Hz",
-  "lede": "Two scenes of the show, rendered from the source code frame by frame. Every picture is the scene's real canvas, doubled here like on the TV. Play, scrub, slow it down.",
+  "lede": "Four scenes of the show, rendered from the source code frame by frame. Every picture is the scene's real canvas, doubled here like on the TV. Play, scrub, slow it down.",
   "footer": "created with ♥ in bitcircus101 · assisted by Claude",
   "credits": "Rendered with build/preview and tools/flipbook.py. There is no image file in the repository, not even here: everything comes from the code.",
   "nav": [
@@ -98,6 +98,75 @@
         [
           "Corner",
           "At t = 10.0 s it hits the top left corner exactly, pixel 0,0. The crossing times of 2.6 s and 1.9 s were chosen for that."
+        ]
+      ]
+    },
+    {
+      "scene": "explode",
+      "title": "Explosion",
+      "t0": 0,
+      "t1": 8,
+      "fps": 12.5,
+      "marks": [
+        {
+          "t0": 0.8,
+          "label": "BOOM"
+        },
+        {
+          "t0": 1.4,
+          "t1": 3.6,
+          "label": "GRAVITY"
+        },
+        {
+          "t0": 3.6,
+          "t1": 6.8,
+          "label": "SPRING BACK"
+        }
+      ],
+      "notes": [
+        [
+          "Particles",
+          "Every lit pixel of the title in the big font becomes a particle with its own velocity, pointing away from the centre plus a random kick; the colour follows the letter."
+        ],
+        [
+          "Physics",
+          "Gravity 420 px/s², the floor returns half the speed and takes a fifth of the sideways motion, the walls reflect. From t = 3.6 s a spring pulls every particle home, from t = 6.8 s it is pinned."
+        ],
+        [
+          "Shockwave",
+          "At t = 0.8 s three rings run outward at 420 px/s and fade over 0.9 s; the raster bars flash for 150 ms."
+        ]
+      ]
+    },
+    {
+      "scene": "fire",
+      "title": "Fire",
+      "t0": 0,
+      "t1": 8,
+      "fps": 12.5,
+      "marks": [
+        {
+          "t0": 0.5,
+          "t1": 5.5,
+          "label": "THE TITLE BURNS"
+        },
+        {
+          "t0": 5.5,
+          "label": "DIES DOWN"
+        }
+      ],
+      "notes": [
+        [
+          "Heat",
+          "A buffer of 180 × 144 heat values, 0 cold to 36 white hot, drawn as 2 × 2 pixels. Every frame each value rises one line, loses heat at random and drifts a pixel sideways."
+        ],
+        [
+          "Sources",
+          "The bottom row glows at 36 until t = 5.5 s; from t = 0.5 s the letters of the title are sources too, so the word burns. Then the bottom row goes cold and the fire dies down."
+        ],
+        [
+          "Palette",
+          "37 colours from black over red and yellow to white: the fire of the PlayStation port of Doom, as described by Fabien Sanglard."
         ]
       ]
     }

@@ -9,6 +9,8 @@ DVD-Logo, …) und zwei erklärende Folien-Decks. Jedes Pixel wird in C berechne
 den Framebuffer geschrieben: kein X, keine Bilddateien, 50 Bilder pro Sekunde auf einem Kern
 mit 700 MHz.
 
+![Die Bildröhren-Szene, gerendert für die Website](https://bmmmm.github.io/tvtv/img/crt.png)
+
 **Im Browser ansehen:** <https://bmmmm.github.io/tvtv/index.de.html> führt denselben C-Code
 aus, übersetzt nach WebAssembly. Dazu gibt es ein
 [Flipbook](https://bmmmm.github.io/tvtv/flipbook.de.html) Bild für Bild und das
