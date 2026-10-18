@@ -1,5 +1,7 @@
-# House checks for a public repository: a full-history secret scan on every push, pull request
-# and once a week; tracked files that must never exist; hardcoded tokens in the tree.
+# House checks for a public repository: gitleaks over the pushed commits on every push and pull
+# request and over the whole history once a week or on dispatch (the very first push of a
+# repository has no base commit and fails once); tracked files that must never exist;
+# hardcoded tokens in the tree.
 name: security
 
 on:
@@ -8,6 +10,7 @@ on:
   pull_request:
   schedule:
     - cron: "17 4 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
