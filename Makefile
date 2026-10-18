@@ -58,6 +58,6 @@ clean:
 
 .PHONY: all clean preview FORCE
 
-# Website (GitHub Pages), needs emcc, pandoc, typst: see web/site.mk. Optional on purpose:
-# the Pi only receives src, slides, system, tools and this Makefile (scripts/deploy.sh).
+# Website (GitHub Pages), needs emcc, pandoc, typst: see web/site.mk. Optional, because
+# deploy.sh does not send web/ to the Pi and `make` there must not die on a missing file.
 -include web/site.mk
