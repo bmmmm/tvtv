@@ -74,21 +74,26 @@ if ! cmp -s "$drop" "$conf"; then
 fi
 rm -f "$drop"
 
-# The unit, from this copy (not from the tree the service user owns).
-sed "s|@BC101_DIR@|$DEST|g; s|@BC101_USER@|$U|g" system/bc101.service > /etc/systemd/system/bc101.service
+# The units, from this copy (not from the tree the service user owns): the show and the socket
+# that starts it on the first remote command.
+for unit in bc101.service bc101.socket; do
+  sed "s|@BC101_DIR@|$DEST|g; s|@BC101_USER@|$U|g" "system/$unit" > "/etc/systemd/system/$unit"
+done
 
-# Exact sudo rules for the deploying user: build and sync as the service user, the unit file
-# from stdin, the service, the keys, the USB stick /dev/sda1 on /mnt by hand (it also mounts by
-# itself, see fstab below). Nothing that runs a file the service user can write.
+# Exact sudo rules for the deploying user: build and sync as the service user, the unit files
+# from stdin, the service and its socket, the keys, the USB stick /dev/sda1 on /mnt by hand (it
+# also mounts by itself, see fstab below). Nothing that runs a file the service user can write.
 if [[ -n $deployer && $deployer != root ]] && getent passwd "$deployer" > /dev/null; then
   rules=$(mktemp)
   cat > "$rules" <<RULES
 # tvtv: scripts/deploy.sh and tv-keys for $deployer, written by tools/setup-remote.sh
 Cmnd_Alias TVTV_AS_TV = $(command -v rsync), $(command -v make)
 Cmnd_Alias TVTV_ROOT = $(command -v tee) /etc/systemd/system/bc101.service, \\
+    $(command -v tee) /etc/systemd/system/bc101.socket, \\
     $(command -v systemctl) daemon-reload, $(command -v systemctl) enable --quiet bc101, \\
     $(command -v systemctl) restart bc101, $(command -v systemctl) stop bc101, \\
-    $(command -v systemctl) start bc101, /usr/local/sbin/tv-keys, \\
+    $(command -v systemctl) start bc101, $(command -v systemctl) stop bc101.socket, \\
+    $(command -v systemctl) start bc101.socket, /usr/local/sbin/tv-keys, \\
     $(command -v mount) -o uid=$(id -u "$deployer")\\,gid=$(id -g "$deployer")\\,nosuid\\,nodev\\,noexec /dev/sda1 /mnt, \\
     $(command -v umount) /mnt
 $deployer ALL=($U) NOPASSWD: TVTV_AS_TV

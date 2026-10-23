@@ -95,14 +95,14 @@ another name, and a name that belongs to a person is refused, because the sshd r
 would lock that person into the dispatcher), moves the show to `/opt/tvtv` owned by `zapper`,
 installs the dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the empty keys file
 `/etc/tvtv/authorized_keys`, the sshd drop-in `system/sshd-tv.conf` (checked with `sshd -t`,
-then reloaded) and the systemd unit, writes `/etc/sudoers.d/tvtv-deploy` for the deploying
-login (`rsync` and `make` as `zapper`, the unit file from stdin, `systemctl` for the service,
-`tv-keys`, mounting and unmounting the USB stick `/dev/sda1` on `/mnt` by hand), adds the
-stick to `/etc/fstab` as an automount (see Doom below), and runs `tools/install.sh` (build as
-`zapper`, restart, health check). From then on plain `scripts/deploy.sh` targets `/opt/tvtv`
-without prompts. A change to `tools/tv-dispatch` reaches `ssh zapper` only through the setup
-again: sshd runs the root-owned copy. The old checkout in the
-deploying login's home can go.
+then reloaded) and the systemd units `bc101.service` and `bc101.socket`, writes
+`/etc/sudoers.d/tvtv-deploy` for the deploying login (`rsync` and `make` as `zapper`, the two
+unit files from stdin, `systemctl` for the service and its socket, `tv-keys`, mounting and
+unmounting the USB stick `/dev/sda1` on `/mnt` by hand), adds the stick to `/etc/fstab` as an
+automount (see Doom below), and runs `tools/install.sh` (build as `zapper`, restart, health
+check). From then on plain `scripts/deploy.sh` targets `/opt/tvtv` without prompts. A change to
+`tools/tv-dispatch` reaches `ssh zapper` only through the setup again: sshd runs the root-owned
+copy. The old checkout in the deploying login's home can go.
 
 Then your key and an alias. Use the Pi's IP address if its host name does not resolve from
 your machine:

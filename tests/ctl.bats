@@ -207,6 +207,8 @@ fps() { ctl status | grep -o 'fps=[0-9.]*' | cut -d= -f2; }
   sleep 1.5
   run ./bc101 ctl -s "$s" status
   [[ $output == *"scene=hippie ch=9"* ]]
+  local fps=${output##* fps=}
+  [ "${fps%%.*}" -ge 5 ] # the inherited socket does not block the frame loop (blocking: 0)
   kill "$pid"
   wait "$pid" 2> /dev/null || true
   [ -S "$s" ] # systemd's socket: the show leaves it in place
