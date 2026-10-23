@@ -2051,8 +2051,8 @@ static char *GetDefaultConfigDir(void)
     char *homedir;
     char *result;
 
-    // frosted HACK - homedir = getenv("HOME");
-    homedir = "/mnt";
+    // tvtv: $HOME again instead of the "frosted HACK" /mnt, where our USB stick is mounted
+    homedir = getenv("HOME");
 
     if (homedir != NULL)
     {

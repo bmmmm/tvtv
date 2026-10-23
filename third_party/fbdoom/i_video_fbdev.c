@@ -46,6 +46,7 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <linux/fb.h>
+#include <linux/kd.h>
 #include <sys/ioctl.h>
 
 //#define CMAP256
@@ -53,6 +54,12 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 struct fb_var_screeninfo fb = {};
 int fb_scaling = 1;
 int usemouse = 0;
+
+// tvtv: on a 16 bpp framebuffer without -scaling, stretch the 320x200 picture over the whole
+// screen (nearest neighbour). A TV's 4:3 picture is the aspect Doom was drawn for.
+static int fill_screen;
+static int *fill_x, *fill_y;
+static uint16_t pal16[256];
 
 struct color {
     uint32_t b:8;
@@ -189,10 +196,24 @@ void I_InitGraphics (void)
         fb_scaling = i;
         printf("I_InitGraphics: Scaling factor: %d\n", fb_scaling);
     } else {
+        struct fb_fix_screeninfo fix;
+
         fb_scaling = fb.xres / SCREENWIDTH;
         if (fb.yres / SCREENHEIGHT < fb_scaling)
             fb_scaling = fb.yres / SCREENHEIGHT;
-        printf("I_InitGraphics: Auto-scaling factor: %d\n", fb_scaling);
+        if (fb.bits_per_pixel == 16 && ioctl(fd_fb, FBIOGET_FSCREENINFO, &fix) == 0
+            && fix.line_length == fb.xres * 2) {
+            fill_x = malloc(fb.xres * sizeof *fill_x);
+            fill_y = malloc(fb.yres * sizeof *fill_y);
+            for (i = 0; i < (int) fb.xres; i++)
+                fill_x[i] = i * SCREENWIDTH / fb.xres;
+            for (i = 0; i < (int) fb.yres; i++)
+                fill_y[i] = i * SCREENHEIGHT / fb.yres;
+            fill_screen = 1;
+            printf("I_InitGraphics: stretched to %d x %d\n", fb.xres, fb.yres);
+        } else {
+            printf("I_InitGraphics: Auto-scaling factor: %d\n", fb_scaling);
+        }
     }
 
 
@@ -204,10 +225,15 @@ void I_InitGraphics (void)
 
     extern int I_InitInput(void);
     I_InitInput();
+
+    // tvtv: graphics mode on our console, or the kernel keeps drawing its text over the picture.
+    // After I_InitInput: it may wait for the terminal. Fails harmlessly when stdin is no console.
+    ioctl(STDIN_FILENO, KDSETMODE, KD_GRAPHICS);
 }
 
 void I_ShutdownGraphics (void)
 {
+	ioctl(STDIN_FILENO, KDSETMODE, KD_TEXT);
 	Z_Free (I_VideoBuffer);
 	free(I_VideoBuffer_FB);
 }
@@ -406,6 +432,21 @@ void I_FinishUpdate (void)
     int x_offset, y_offset, x_offset_end;
     unsigned char *line_in, *line_out;
 
+    if (fill_screen) {
+        uint16_t *out = (uint16_t *) I_VideoBuffer_FB;
+        int x;
+
+        for (y = 0; y < (int) fb.yres; y++) {
+            const byte *in = I_VideoBuffer + fill_y[y] * SCREENWIDTH;
+
+            for (x = 0; x < (int) fb.xres; x++)
+                *out++ = pal16[in[fill_x[x]]];
+        }
+        lseek(fd_fb, 0, SEEK_SET);
+        write(fd_fb, I_VideoBuffer_FB, fb.xres * fb.yres * 2);
+        return;
+    }
+
     /* Offsets in case FB is bigger than DOOM */
     /* 600 = fb heigt, 200 screenheight */
     /* 600 = fb heigt, 200 screenheight */
@@ -487,6 +528,9 @@ void I_SetPalette (byte* palette)
         colors[i].r = gammatable[usegamma][*palette++];
         colors[i].g = gammatable[usegamma][*palette++];
         colors[i].b = gammatable[usegamma][*palette++];
+        pal16[i] = (colors[i].r >> (8 - fb.red.length)) << fb.red.offset
+                 | (colors[i].g >> (8 - fb.green.length)) << fb.green.offset
+                 | (colors[i].b >> (8 - fb.blue.length)) << fb.blue.offset;
     }
 
     /* Set new color map in kernel framebuffer driver */

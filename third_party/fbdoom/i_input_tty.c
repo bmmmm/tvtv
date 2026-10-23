@@ -43,6 +43,10 @@
 #include "m_config.h"
 #include "m_misc.h"
 #include "tables.h"
+
+// tvtv: keys from a terminal as well, see i_input_term.c
+void term_init(void);
+void term_events(void);
 #include "v_video.h"
 #include "w_wad.h"
 #include "z_zone.h"
@@ -305,7 +309,7 @@ static int kbd_init(void)
        might point to a console. This is not especially likely. */
     if (files_to_try[i] == NULL) {
         for (kb = 0; kb < 3; kb++) {
-            if (tty_is_kbd(i)) {
+            if (tty_is_kbd(kb)) {
                 found = 1;
                 break;
             }
@@ -316,6 +320,7 @@ static int kbd_init(void)
         printf("Unable to find a file descriptor associated with "\
                 "the keyboard.\n" \
                 "Perhaps you're not using a virtual terminal?\n");
+        kb = -1; // tvtv: the loop above leaves 3 here, and kbd_read would read whatever fd 3 is
         return 1;
     }
 
@@ -433,7 +438,8 @@ void I_GetEvent(void)
     unsigned char key;
 
     // put event-grabbing stuff in here
-    
+    term_events();
+
     while (kbd_read(&pressed, &key))
     {
         if (key == 0x0E) {
@@ -493,6 +499,7 @@ void I_GetEvent(void)
 
 void I_InitInput(void)
 {
+    term_init();
     kbd_init();
 
     //UpdateFocus();
