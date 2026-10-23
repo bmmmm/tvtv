@@ -110,7 +110,8 @@ Host zapper
     IdentityFile ~/.ssh/id_ed25519_zapper
 ```
 
-Or no alias at all: `scripts/tv` keeps its own settings in `~/.config/tvtv/remote`.
+Or no alias at all: `scripts/tv` keeps its own settings in `~/.config/tvtv/remote`
+(`$XDG_CONFIG_HOME/tvtv/remote` if that is set).
 
 ```sh
 scripts/tv config host 192.0.2.10
@@ -121,6 +122,8 @@ scripts/tv --host 10.0.0.9 status       # one call elsewhere
 ```
 
 The address comes from `--host`, else `TV_HOST`, else the settings, else the alias `zapper`.
+`user` and `identity` apply to every address: without them, `--host` logs in with your own
+login name and keys, which `zapper` does not accept.
 
 `scripts/tv status` answers `ok` and the current scene; `scripts/tv` opens the zapper.
 
