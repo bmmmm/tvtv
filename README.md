@@ -95,9 +95,10 @@ Every scene has a channel number: 00 standby (black), 01–17 the loop, 20–22 
 30 and up the uploaded visuals. The user `zapper` on the Pi can run exactly one program, the
 dispatcher, with a key only; keys come in two roles (`tv-keys add <who> op|admin`). An
 upload is compiled, run offscreen through its whole length and only then swapped in; if the
-show does not come back, the previous build returns. `scripts/tv` wraps the ssh calls, and
-`bc101 ctl <command>` talks to the show from the Pi's console. Setup, keys, the key map and
-the security model: [docs/remote.md](docs/remote.md).
+show does not come back, the previous build returns. `scripts/tv` wraps the ssh calls, via
+the alias or its own settings (`tv config`: host, user, key), and `bc101 ctl <command>` talks
+to the show from the Pi's console. Setup, keys, the key map and the security model:
+[docs/remote.md](docs/remote.md).
 
 ## Previewing without the Pi
 

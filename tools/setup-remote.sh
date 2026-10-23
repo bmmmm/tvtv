@@ -109,6 +109,9 @@ cat <<TXT
 remote ready. Next:
   key:    ssh <pi> sudo tv-keys add <who> admin < <who>.pub      (or op: zap only)
   ssh:    Host zapper / HostName <this pi> / User $U / IdentityFile ~/.ssh/<key>   in ~/.ssh/config
+          or, without an alias: scripts/tv config host <this pi's ip>; scripts/tv config user $U;
+                                scripts/tv config identity ~/.ssh/<key>
   use:    ssh zapper      the zapper        ssh zapper 7 | next | status | help
+          (scripts/tv, scripts/tv 7 ... with or without the alias)
   log:    journalctl -t tvtv
 TXT

@@ -98,8 +98,9 @@ Extras, ab 30 die hochgeladenen Visuals. Der Nutzer `zapper` auf dem Pi darf gen
 ausführen, den Dispatcher, und das nur mit Schlüssel; Schlüssel gibt es in zwei Rollen
 (`tv-keys add <wer> op|admin`). Ein Upload wird kompiliert, offscreen in voller Länge
 durchgespielt und erst dann eingetauscht; kommt die Show nicht zurück, kehrt der vorherige
-Build zurück. `scripts/tv` kapselt die ssh-Aufrufe, `bc101 ctl <befehl>` spricht von der
-Konsole des Pi mit der Show. Einrichtung, Schlüssel, Tastenbelegung und Sicherheitsmodell:
+Build zurück. `scripts/tv` kapselt die ssh-Aufrufe, über den Alias oder eigene Einstellungen
+(`tv config`: Host, Nutzer, Schlüssel), `bc101 ctl <befehl>` spricht von der Konsole des Pi
+mit der Show. Einrichtung, Schlüssel, Tastenbelegung und Sicherheitsmodell:
 [docs/remote.md](docs/remote.md) (Englisch).
 
 ## Ansehen ohne Pi
