@@ -91,8 +91,11 @@ installs the dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the emp
 `/etc/tvtv/authorized_keys`, the sshd drop-in `system/sshd-tv.conf` (checked with `sshd -t`,
 then reloaded) and the systemd unit, writes `/etc/sudoers.d/tvtv-deploy` for the deploying
 login (`rsync` and `make` as `zapper`, the unit file from stdin, `systemctl` for the service,
-`tv-keys`, the USB stick `/dev/sda1` mounted on and unmounted from `/mnt`), and runs `tools/install.sh` (build as `zapper`, restart, health check). From then on
-plain `scripts/deploy.sh` targets `/opt/tvtv` without prompts. The old checkout in the
+`tv-keys`, mounting and unmounting the USB stick `/dev/sda1` on `/mnt` by hand), adds the
+stick to `/etc/fstab` as an automount (see Doom below), and runs `tools/install.sh` (build as
+`zapper`, restart, health check). From then on plain `scripts/deploy.sh` targets `/opt/tvtv`
+without prompts. A change to `tools/tv-dispatch` reaches `ssh zapper` only through the setup
+again: sshd runs the root-owned copy. The old checkout in the
 deploying login's home can go.
 
 Then your key and an alias. Use the Pi's IP address if its host name does not resolve from
@@ -212,18 +215,22 @@ leaves `visuals/` alone.
 
 ```
 ssh -t zapper doom                      Doom's title and menu: new game, episode, skill
-ssh -t zapper doom freedoom1 e1m3 4     straight into a level, skill 1-5 (e1m1..e4m9, map01..map32)
-ssh zapper doom list                    the WADs on the USB stick (/mnt) and in /usr/share/games/doom
+ssh -t zapper doom freedoom1 e1m3 4     straight into a level (e1m1..e4m9, map01..map32), skill 1-5
+ssh zapper doom list                    the games on the USB stick and in /usr/share/games/doom
 ```
 
 A name on both is taken from the stick; only games (IWADs) are listed, not add-ons. The stick
 (vfat, `/dev/sda1`) mounts on `/mnt` when something looks there and unmounts after a minute
-idle, so it can be pulled; the setup writes that line into `/etc/fstab`. In the zapper, `d` starts Doom's menu. The picture goes
-to the TV, the keys come from your terminal, so the terminal needs `-t`. The show hands the
-screen over (`yield`, see `src/main.c`) and takes it back when Doom ends: Ctrl-C, Doom's own
-quit, an engine error, a lost connection (once sshd notices, up to two minutes; a key that
-was held stays held until then), or anybody zapping a channel meanwhile (that ends Doom:
-SIGTERM, SIGKILL after 2 s); the zapper shows DOOM meanwhile. A level must be in the WAD:
+idle, so it can be pulled; the setup writes that line into `/etc/fstab`. Without a stick a
+look at `/mnt` waits up to 2 s for it, so `doom` starts that much later.
+
+In the zapper, `d` starts Doom's menu. The picture goes to the TV, the keys come from your
+terminal, so the terminal needs `-t`. The show hands the screen over (`yield`, see
+`src/main.c`) and takes it back when Doom ends: Ctrl-C, Doom's own quit, an engine error, a
+lost connection (once sshd notices, up to two minutes; in a kitty terminal a key that was held
+stays held until then), or anybody zapping a channel meanwhile (that ends Doom: SIGTERM,
+SIGKILL after 2 s; settings changed in that game are not saved then, savegames are). The
+zapper shows DOOM meanwhile. A level must be in the WAD:
 `e1m1` for Doom 1 games like freedoom1, `map01` for Doom 2 ones like freedoom2 (the dispatcher
 reads the WAD's directory).
 
