@@ -112,7 +112,7 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
 
 @test "reexec keeps the mode and the channel" {
   ctl tune 9 > /dev/null
-  sleep 3
+  sleep 4
   local before after
   before=$(ctl status | grep -o 'up=[0-9]*' | cut -d= -f2)
   run ctl reexec
@@ -183,6 +183,10 @@ fps() { ctl status | grep -o 'fps=[0-9.]*' | cut -d= -f2; }
   [ "$status" -eq 1 ]
   run ctl yield "$(cat "$BATS_FILE_TMPDIR/pid")" # the show itself
   [ "$status" -eq 1 ]
+  if [ "$(id -u)" -ne 0 ]; then # pid 2 is the kernel's kthreadd: alive, but not ours to end
+    run ctl yield 2
+    [ "$status" -eq 1 ]
+  fi
   run ctl status
   [[ $output == *"yield=0"* ]]
 }
