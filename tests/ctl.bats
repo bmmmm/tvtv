@@ -112,7 +112,9 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
 
 @test "reexec keeps the mode and the channel" {
   ctl tune 9 > /dev/null
-  sleep 1
+  sleep 3
+  local before after
+  before=$(ctl status | grep -o 'up=[0-9]*' | cut -d= -f2)
   run ctl reexec
   [ "$status" -eq 0 ]
   sleep 1.5
@@ -120,7 +122,9 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
   [ "$status" -eq 0 ]
   [[ $output == *"scene=hippie ch=9"* ]]
   [[ $output == *"mode=hold"* ]]
-  [[ $output == *"up=1"* ]] || [[ $output == *"up=0"* ]]
+  # the uptime starts over with the new process image; a fixed value was too tight for the Pi 1
+  after=$(grep -o 'up=[0-9]*' <<< "$output" | cut -d= -f2)
+  [ "$after" -lt "$before" ]
 }
 
 fps() { ctl status | grep -o 'fps=[0-9.]*' | cut -d= -f2; }
@@ -140,6 +144,8 @@ fps() { ctl status | grep -o 'fps=[0-9.]*' | cut -d= -f2; }
   sleep 1
   f2=$(fps)
   awk -v a="$f1" -v b="$f2" 'BEGIN { exit !(b < 0.75 * a) }'
+  run env COLUMNS=80 LINES=24 ./tvctl remote -s "$SOCK" --frame --no-color --ascii
+  [[ $output == *" DOOM "*"Fernseher"* ]]
   run ctl yield $$
   [ "$status" -eq 1 ]
   [[ $output == *"taken"* ]]
