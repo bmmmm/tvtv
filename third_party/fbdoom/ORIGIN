@@ -1,0 +1,9 @@
+fbdoom: Doom for a plain Linux framebuffer, based on Chocolate Doom.
+Upstream:  https://github.com/maximevince/fbdoom
+Commit:    e52885f (the fbdoom/ directory and README.TXT; ipx/, sersrc/, sndserv/ left out)
+Licence:   GPL-2.0-or-later (see the file headers; id Software released the Doom source under the
+           GPL in 1999, README.TXT still carries the older 1997 text). Combined with tvtv under
+           GPL-3.0-or-later.
+
+Built by the top-level Makefile (target fbdoom), not by the Makefile in this directory.
+Our changes are separate commits on top of the pristine import, see `git log -- third_party/fbdoom`.
