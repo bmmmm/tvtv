@@ -78,7 +78,8 @@ rm -f "$drop"
 sed "s|@BC101_DIR@|$DEST|g; s|@BC101_USER@|$U|g" system/bc101.service > /etc/systemd/system/bc101.service
 
 # Exact sudo rules for the deploying user: build and sync as the service user, the unit file
-# from stdin, the service, the keys, the USB stick /dev/sda1 on /mnt. Nothing that runs a file the service user can write.
+# from stdin, the service, the keys, the USB stick /dev/sda1 on /mnt by hand (it also mounts by
+# itself, see fstab below). Nothing that runs a file the service user can write.
 if [[ -n $deployer && $deployer != root ]] && getent passwd "$deployer" > /dev/null; then
   rules=$(mktemp)
   cat > "$rules" <<RULES
@@ -102,6 +103,21 @@ RULES
   rm -f "$rules"
 else
   echo "no deploying user given (--deployer <user>): deploys will ask for sudo passwords" >&2
+fi
+
+# The USB stick (WADs for Doom): mounted when something looks at /mnt, unmounted after a minute
+# idle so it can be pulled, and a missing stick does not hold up the boot.
+owner=${deployer:-$U}
+[[ $owner != root ]] || owner=$U
+line="/dev/sda1 /mnt vfat uid=$(id -u "$owner"),gid=$(id -g "$owner"),nosuid,nodev,noexec,nofail,noauto"
+line+=",x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.device-timeout=5s 0 0"
+if ! grep -qxF "$line" /etc/fstab; then
+  sed -i '/^# tvtv: the USB stick/d; \|^/dev/sda1[[:space:]]|d' /etc/fstab
+  printf '# tvtv: the USB stick, see tools/setup-remote.sh\n%s\n' "$line" >> /etc/fstab
+  systemctl daemon-reload
+  if [[ $(findmnt -n -o SOURCE /mnt 2> /dev/null) == /dev/sda1 ]]; then umount /mnt; fi
+  systemctl restart mnt.automount
+  echo "fstab: the USB stick mounts on /mnt when used"
 fi
 
 "$DEST/tools/install.sh"

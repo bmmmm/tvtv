@@ -216,13 +216,16 @@ ssh -t zapper doom freedoom1 e1m3 4     straight into a level, skill 1-5 (e1m1..
 ssh zapper doom list                    the WADs on the USB stick (/mnt) and in /usr/share/games/doom
 ```
 
-A name on both is taken from the stick. In the zapper, `d` starts Doom's menu. The picture goes
+A name on both is taken from the stick; only games (IWADs) are listed, not add-ons. The stick
+(vfat, `/dev/sda1`) mounts on `/mnt` when something looks there and unmounts after a minute
+idle, so it can be pulled; the setup writes that line into `/etc/fstab`. In the zapper, `d` starts Doom's menu. The picture goes
 to the TV, the keys come from your terminal, so the terminal needs `-t`. The show hands the
 screen over (`yield`, see `src/main.c`) and takes it back when Doom ends: Ctrl-C, Doom's own
 quit, an engine error, a lost connection (once sshd notices, up to two minutes; a key that
 was held stays held until then), or anybody zapping a channel meanwhile (that ends Doom:
-SIGTERM, SIGKILL after 2 s). The level is not checked against the WAD: `e1m1` is for Doom 1
-WADs like freedoom1, `map01` for Doom 2 ones like freedoom2.
+SIGTERM, SIGKILL after 2 s); the zapper shows DOOM meanwhile. A level must be in the WAD:
+`e1m1` for Doom 1 games like freedoom1, `map01` for Doom 2 ones like freedoom2 (the dispatcher
+reads the WAD's directory).
 
 | Key | |
 |---|---|
