@@ -13,6 +13,7 @@ const char *ctl_default_path(void); // $BC101_CTL, else $RUNTIME_DIRECTORY/ctl, 
 
 // server
 int ctl_listen(const char *path);                   // listening fd (non-blocking) or -1 with errno
+int ctl_inherited(void);                            // the socket systemd passed (bc101.socket) or -1
 int ctl_accept(int lfd, char *req, size_t n);       // a client fd with its request line, or -1 if none
 void ctl_reply(int cfd, const char *text);          // writes the reply and closes cfd
 

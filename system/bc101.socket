@@ -1,0 +1,14 @@
+[Unit]
+Description=bc101 control socket: a command from the remote switches the show on
+# Like a TV set: stopping bc101.service is standby, the next remote command starts it again;
+# stopping this socket unplugs it (the service goes with it, see Requires= there).
+
+[Socket]
+# tools/setup-remote.sh and scripts/deploy.sh fill in the service user, as for bc101.service.
+ListenStream=/run/bc101/ctl
+SocketUser=@BC101_USER@
+SocketGroup=@BC101_USER@
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

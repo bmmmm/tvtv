@@ -15,24 +15,26 @@ HOST="${BC101_HOST:-tvtv-deploy}"       # the deploying login; gets exact sudo r
 DIR="${BC101_DIR:-/opt/tvtv}"           # on the Pi, owned by the service user
 USER_REMOTE="${BC101_USER:-zapper}"     # the service user: runs the show, takes the ssh commands
 RSYNC_PATH="sudo -u $USER_REMOTE rsync" # write as the owner
-UNIT=/etc/systemd/system/bc101.service
+UNITS=(bc101.service bc101.socket) # in system/, installed to /etc/systemd/system/
 PARTS=(src slides system tools third_party Makefile)
 cd "$(dirname "$0")/.."
 
-render_unit() { sed "s|@BC101_DIR@|$DIR|g; s|@BC101_USER@|$USER_REMOTE|g" system/bc101.service; }
+render_unit() { sed "s|@BC101_DIR@|$DIR|g; s|@BC101_USER@|$USER_REMOTE|g" "system/$1"; }
 
 case "${1:-}" in
   "") ;;
   -n)
     rsync -ani --delete --rsync-path="$RSYNC_PATH" "${PARTS[@]}" "$HOST:$DIR/"
-    rc=0
-    # shellcheck disable=SC2029 # $UNIT is meant to expand locally
-    render_unit | ssh "$HOST" "diff -u $UNIT -" || rc=$?
-    case $rc in
-      0) echo "unit: unchanged" ;;
-      1) echo "unit: would be updated" ;;
-      *) echo "unit: could not compare (rc $rc)" >&2; exit 1 ;;
-    esac
+    for u in "${UNITS[@]}"; do
+      rc=0
+      # shellcheck disable=SC2029 # $u is meant to expand locally
+      render_unit "$u" | ssh "$HOST" "diff -u /etc/systemd/system/$u -" || rc=$?
+      case $rc in
+        0) echo "$u: unchanged" ;;
+        1) echo "$u: would be updated" ;;
+        *) echo "$u: could not compare (rc $rc)" >&2; exit 1 ;;
+      esac
+    done
     exit 0
     ;;
   --setup)
@@ -62,7 +64,9 @@ esac
 
 # Only tracked parts travel; build/, fonts/, visuals/ and the binaries stay on the Pi.
 rsync -a --delete --rsync-path="$RSYNC_PATH" "${PARTS[@]}" "$HOST:$DIR/"
-# shellcheck disable=SC2029 # $UNIT is meant to expand locally
-render_unit | ssh "$HOST" "sudo tee $UNIT >/dev/null"
+for u in "${UNITS[@]}"; do
+  # shellcheck disable=SC2029 # $u is meant to expand locally
+  render_unit "$u" | ssh "$HOST" "sudo tee /etc/systemd/system/$u >/dev/null"
+done
 # shellcheck disable=SC2029 # $DIR is meant to expand locally
 ssh "$HOST" "$DIR/tools/install.sh" </dev/null

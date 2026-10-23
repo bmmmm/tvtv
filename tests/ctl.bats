@@ -190,3 +190,24 @@ fps() { ctl status | grep -o 'fps=[0-9.]*' | cut -d= -f2; }
   run ctl status
   [[ $output == *"yield=0"* ]]
 }
+
+@test "socket activation: the first request starts the show, reexec keeps the socket" {
+  command -v systemd-socket-activate > /dev/null || skip "no systemd-socket-activate"
+  local s=$BATS_TEST_TMPDIR/act
+  systemd-socket-activate -l "$s" ./bc101 -x -t 30 > /dev/null 2>&1 &
+  local pid=$!
+  for _ in $(seq 25); do [ -S "$s" ] && break; sleep 0.2; done
+  run ./bc101 ctl -s "$s" status # nothing runs yet: this request starts the show
+  [ "$status" -eq 0 ]
+  [[ $output == *"mode=auto"* ]]
+  ./bc101 ctl -s "$s" tune 9 > /dev/null
+  sleep 1
+  run ./bc101 ctl -s "$s" reexec
+  [ "$status" -eq 0 ]
+  sleep 1.5
+  run ./bc101 ctl -s "$s" status
+  [[ $output == *"scene=hippie ch=9"* ]]
+  kill "$pid"
+  wait "$pid" 2> /dev/null || true
+  [ -S "$s" ] # systemd's socket: the show leaves it in place
+}

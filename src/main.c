@@ -289,10 +289,12 @@ int main(int argc, char **argv) {
         close(fd);
     }
 
-    // Where the remote connects. No socket when not under systemd and none was asked for.
-    if (!sock && getenv("RUNTIME_DIRECTORY")) sock = ctl_default_path();
-    int lfd = -1;
-    if (sock && (lfd = ctl_listen(sock)) < 0) fprintf(stderr, "control socket %s: %s\n", sock, strerror(errno));
+    // Where the remote connects: the socket bc101.socket holds open (so a remote command can start
+    // the show), else our own. No socket when not under systemd and none was asked for.
+    int lfd = ctl_inherited();
+    if (lfd >= 0) sock = NULL; // systemd's to keep: not unlinked at exit
+    else if (!sock && getenv("RUNTIME_DIRECTORY")) sock = ctl_default_path();
+    if (lfd < 0 && sock && (lfd = ctl_listen(sock)) < 0) fprintf(stderr, "control socket %s: %s\n", sock, strerror(errno));
 
     char logpath[1024];
     const char *rt = getenv("RUNTIME_DIRECTORY");
@@ -413,7 +415,7 @@ int main(int argc, char **argv) {
         ioctl(0, KDSETMODE, KD_TEXT);
         munmap(fb, fbsize);
     }
-    if (lfd >= 0) {
+    if (lfd >= 0 && sock) {
         close(lfd);
         unlink(sock);
     }

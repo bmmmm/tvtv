@@ -33,6 +33,12 @@ Three modes: **auto** plays the loop, **hold** repeats one channel (that is what
 number does), **once** shows a channel one time and returns to the loop (`play`). Every change
 goes through the normal fade.
 
+The remote always switches the show on, as on a TV set: systemd holds the control socket open
+(`bc101.socket`), and the first command that arrives starts the show if it is not running.
+`systemctl stop bc101` is standby; `systemctl stop bc101.socket` unplugs it, the show goes off
+with it and the remote answers `show not reachable` until `systemctl start bc101.socket`. That
+is the way for maintenance, or for anything else that wants the framebuffer and tty1.
+
 ## The zapper
 
 ```
@@ -162,7 +168,8 @@ host, user `zapper` and the key. Then `ssh zapper status` answers `ok`, and `ssh
 the zapper. A key that is not on the list gets `Permission denied (publickey)`.
 
 To take a player off: `ssh tvtv-deploy sudo tv-keys rm <name>`; the next login fails with
-`Permission denied (publickey)`.
+`Permission denied (publickey)`. A zapper that is open at that moment keeps working until it is
+closed, on purpose: the remote in someone's hand does not die mid-zap.
 
 ## Visuals
 

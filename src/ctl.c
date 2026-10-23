@@ -47,6 +47,16 @@ int ctl_listen(const char *path) {
     return fd;
 }
 
+// Socket activation (sd_listen_fds without libsystemd): the first passed fd is 3. It stays open
+// across do_reexec, which keeps the pid, so LISTEN_PID still matches in the new binary.
+int ctl_inherited(void) {
+    const char *pid = getenv("LISTEN_PID"), *fds = getenv("LISTEN_FDS");
+    if (!pid || !fds || atol(pid) != (long)getpid() || atoi(fds) < 1) return -1;
+    int fl = fcntl(3, F_GETFL);
+    if (fl < 0 || fcntl(3, F_SETFL, fl | O_NONBLOCK) < 0) return -1; // ctl_accept must not block
+    return 3;
+}
+
 // Reads until newline, EOF or the deadline; a client that stalls cannot hold up the frame loop.
 static int read_line(int fd, char *buf, size_t n, int ms) {
     size_t len = 0;

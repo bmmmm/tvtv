@@ -1,7 +1,9 @@
 [Unit]
 Description=bc101 demo show on the TV (tty1)
-After=systemd-user-sessions.service getty@tty1.service
+After=systemd-user-sessions.service getty@tty1.service bc101.socket
 Conflicts=getty@tty1.service
+# The control socket comes from bc101.socket, which starts the show on the first remote command.
+Requires=bc101.socket
 # Room for the rollback after a bad visual: a few quick restarts must not stop the service.
 StartLimitIntervalSec=60
 StartLimitBurst=10
@@ -15,6 +17,8 @@ SupplementaryGroups=video tty
 # /run/bc101: the control socket for the remote and anim.log; group members may use both.
 RuntimeDirectory=bc101
 RuntimeDirectoryMode=0750
+# Kept when the show stops: the socket file in it belongs to bc101.socket and must outlive the show.
+RuntimeDirectoryPreserve=yes
 StandardInput=tty
 StandardOutput=tty
 StandardError=journal
@@ -58,3 +62,4 @@ UMask=0027
 
 [Install]
 WantedBy=multi-user.target
+Also=bc101.socket
