@@ -217,7 +217,7 @@ fetch() {
 
 # ---------- doom ----------
 
-is_iwad() { [[ $(head -c 4 "$1" 2>/dev/null) == IWAD ]]; } # a game, not an add-on (PWAD)
+is_iwad() { [[ $(head -c 4 "$1" 2>/dev/null | tr -d '\0') == IWAD ]]; } # a game, not an add-on (PWAD)
 
 # has_lump <wad> <NAME>: the WAD's directory names that lump. Header: "IWAD", the number of
 # lumps and the directory's offset (little endian); an entry: offset, size, 8 bytes of name.
@@ -228,7 +228,7 @@ has_lump() {
   [[ $n =~ ^[0-9]+$ && $ofs =~ ^[0-9]+$ ]] || return 1
   ((n > 0 && n < 65536)) || return 1
   # awk reads everything: no reader that quits early, so no SIGPIPE under pipefail
-  od -A n -v -t u1 -j "$ofs" -N $((n * 16)) "$1" | awk -v want="$2" '
+  od -A n -v -t u1 -j "$ofs" -N $((n * 16)) "$1" 2>/dev/null | awk -v want="$2" '
     { for (i = 1; i <= NF; i++) {
         b[k % 16] = $i; k++
         if (k % 16 == 0) {
@@ -250,15 +250,19 @@ wads() { # the IWAD names, lower case, once each
   done | sort -u
 }
 
-wad_path() { # the first file <name>.wad in DOOM_WADS, any case
-  local d f
+wad_path() { # the first game <name>.wad in DOOM_WADS, any case; else the first such add-on
+  local d f addon=
   for d in $DOOM_WADS; do
     for f in "$d"/*.[wW][aA][dD]; do
       [[ -f $f && $(basename "${f%.*}" | tr '[:upper:]' '[:lower:]') == "$1" ]] || continue
-      echo "$f"
-      return 0
+      if is_iwad "$f"; then
+        echo "$f"
+        return 0
+      fi
+      addon=${addon:-$f}
     done
   done
+  if [[ -n $addon ]]; then echo "$addon"; fi
   return 0
 }
 

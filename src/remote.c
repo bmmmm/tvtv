@@ -304,7 +304,7 @@ static void draw_digits_row(Out *o, int row) {
     if (R.entry[0]) {
         tens = R.entry[0] - '0';
         if (R.entry[1]) ones = R.entry[1] - '0';
-    } else if (R.ok) {
+    } else if (R.ok && !R.yield) { // while Doom has the screen no channel is on air
         tens = R.cur / 10;
         ones = R.cur % 10;
     }
