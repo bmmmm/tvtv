@@ -5,15 +5,59 @@
 #   tv 7 | tv next | tv auto | tv status | tv list | tv log | tv tune fire | tv play testcard 30
 #   tv upload foo.c          a new visual (admin key); the channel's name is the file's name
 #   tv rm foo | tv fetch foo > foo.c
-# TV_HOST is the ssh destination (default: zapper, an alias in ~/.ssh/config with User zapper).
+#   tv --host 192.0.2.10 status     one call against another address
+#   tv config [host|user|identity [value]]   show or change the settings
+# Where the remote is: --host, else TV_HOST, else host= in the settings file, else zapper (an alias
+# in ~/.ssh/config with User zapper). The settings file ($XDG_CONFIG_HOME/tvtv/remote, default
+# ~/.config/tvtv/remote) holds key=value lines:
+#   host=192.0.2.10
+#   user=zapper                          the remote's account; empty: ssh decides (the alias)
+#   identity=~/.ssh/id_ed25519_zapper    the key; empty: ssh decides
 set -euo pipefail
-host=${TV_HOST:-zapper}
+conf=${XDG_CONFIG_HOME:-$HOME/.config}/tvtv/remote
+keys=(host user identity)
+
+setting() { # setting <key>: its value from the settings file, empty if unset
+  [[ -f $conf ]] || return 0
+  sed -n "s/^$1=//p" "$conf" | tail -n 1
+}
+
+config() {
+  if [[ -z ${1:-} ]]; then
+    for k in "${keys[@]}"; do printf '%-9s %s\n' "$k" "$(setting "$k")"; done
+    echo "($conf)"
+    return
+  fi
+  [[ " ${keys[*]} " == *" $1 "* ]] || { echo "tv config: keys are ${keys[*]}" >&2; exit 2; }
+  [[ $# -ge 2 ]] || { setting "$1"; return; }
+  mkdir -p "$(dirname "$conf")"
+  { [[ -f $conf ]] && grep -v "^$1=" "$conf"; [[ -n $2 ]] && printf '%s=%s\n' "$1" "$2"; } > "$conf.tmp" || true
+  mv -f "$conf.tmp" "$conf"
+  echo "$1=${2:-(unset)}"
+}
+
+host=${TV_HOST:-}
+if [[ ${1:-} == --host ]]; then
+  [[ -n ${2:-} ]] || { echo "usage: tv --host <address> [command]" >&2; exit 2; }
+  host=$2
+  shift 2
+fi
+[[ ${1:-} == config ]] && { shift; config "$@"; exit; }
+host=${host:-$(setting host)}
+host=${host:-zapper}
+ssh=(ssh)
+user=$(setting user)
+identity=$(setting identity)
+[[ -n $user ]] && ssh+=(-l "$user")
+# IdentitiesOnly: an agent full of other keys would otherwise use up sshd's tries before this one
+[[ -n $identity ]] && ssh+=(-i "${identity/#\~/$HOME}" -o IdentitiesOnly=yes)
+
 case ${1:-} in
-  "") exec ssh -t "$host" ;;
+  "") exec "${ssh[@]}" -t "$host" ;;
   upload)
     [[ -f ${2:-} ]] || { echo "usage: tv upload <file.c>" >&2; exit 2; }
     name=$(basename "${2%.c}")
-    exec ssh "$host" upload "$name" < "$2"
+    exec "${ssh[@]}" "$host" upload "$name" < "$2"
     ;;
-  *) exec ssh "$host" "$@" ;;
+  *) exec "${ssh[@]}" "$host" "$@" ;;
 esac

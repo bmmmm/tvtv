@@ -17,7 +17,8 @@ ssh zapper upload foo < foo.c   admin: a new visual, channel 30+
 ssh zapper rm foo | fetch foo   admin: delete | download the source
 ```
 
-`scripts/tv` wraps this for your own machine: `tv`, `tv 7`, `tv upload foo.c`.
+`scripts/tv` wraps this for your own machine: `tv`, `tv 7`, `tv upload foo.c`, and
+`tv config host <ip>` when the Pi has no alias (below).
 
 ## Channels
 
@@ -108,6 +109,18 @@ Host zapper
     User zapper
     IdentityFile ~/.ssh/id_ed25519_zapper
 ```
+
+Or no alias at all: `scripts/tv` keeps its own settings in `~/.config/tvtv/remote`.
+
+```sh
+scripts/tv config host 192.0.2.10
+scripts/tv config user zapper
+scripts/tv config identity ~/.ssh/id_ed25519_zapper
+scripts/tv config                       # shows them; an empty value unsets a key
+scripts/tv --host 10.0.0.9 status       # one call elsewhere
+```
+
+The address comes from `--host`, else `TV_HOST`, else the settings, else the alias `zapper`.
 
 `scripts/tv status` answers `ok` and the current scene; `scripts/tv` opens the zapper.
 
