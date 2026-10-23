@@ -106,6 +106,12 @@ check). From then on plain `scripts/deploy.sh` targets `/opt/tvtv` without promp
 `tools/tv-dispatch` reaches `ssh zapper` only through the setup again: sshd runs the root-owned
 copy. The old checkout in the deploying login's home can go.
 
+Run the setup again whenever an update brings a new unit or a new sudo rule (`bc101.socket`
+did): `scripts/deploy.sh -n` then reports a unit as "would be created", and a plain deploy
+stops at the sudo for it before it touches the service file. If your ssh agent holds many keys,
+sshd may give up before your password is asked; `ssh -o PubkeyAuthentication=no -t you@<the pi>`
+goes straight to the password.
+
 Then your key and an alias. Use the Pi's IP address if its host name does not resolve from
 your machine:
 

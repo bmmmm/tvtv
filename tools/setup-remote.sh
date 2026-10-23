@@ -50,7 +50,10 @@ fi
 
 install -d -m 0755 -o "$U" -g "$U" "$DEST" "$DEST/visuals"
 if [[ $SRC != "$DEST" ]]; then
-  rsync -a --delete --chown="$U:$U" src slides system tools Makefile "$DEST/"
+  # the same parts as scripts/deploy.sh; third_party (Doom) only where the copy has it
+  parts=(src slides system tools Makefile)
+  if [[ -d third_party ]]; then parts+=(third_party); fi
+  rsync -a --delete --chown="$U:$U" "${parts[@]}" "$DEST/"
   echo "show copied to $DEST"
 fi
 
