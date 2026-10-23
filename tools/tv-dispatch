@@ -19,6 +19,7 @@ set -euo pipefail
 TVTV_HOME=${TVTV_HOME:-/opt/tvtv}
 TVTV_KEYS=${TVTV_KEYS:-/etc/tvtv/authorized_keys}
 TVTV_SOCK=${TVTV_SOCK:-/run/bc101/ctl}
+TVTV_UNIT=${TVTV_UNIT:-bc101} # the show's systemd unit; tests name one that does not exist
 BIN=$TVTV_HOME/bc101  # the show: only for -l (the channel table)
 CTL=$TVTV_HOME/tvctl  # the client, built without scene code: an upload cannot break it
 DOOM=$TVTV_HOME/fbdoom
@@ -69,6 +70,17 @@ valid_target() { [[ $1 =~ ^[0-9]{1,2}$ || $1 =~ $NAME_RE ]]; }
 valid_secs() { [[ $1 =~ ^[0-9]{1,4}(\.[0-9]{1,2})?$ ]]; }
 
 ctl() { "$CTL" -s "$TVTV_SOCK" "$@"; }
+
+unit() { systemctl show -p "$1" --value "$TVTV_UNIT" 2>/dev/null || true; } # empty without systemd
+
+# Switched off: the unit exists and neither runs nor is about to. Then every ctl question would
+# switch the show on (bc101.socket starts it), so upload and rm must not ask.
+show_off() {
+  local state
+  [[ $(unit LoadState) == loaded ]] || return 1
+  state=$(unit ActiveState)
+  [[ $state == inactive || $state == failed ]]
+}
 
 # "loop", "extra", "visual", "standby" or empty for an unknown name; from the installed binary.
 kind_of() { "$BIN" -l 2>/dev/null | awk -v n="$1" '$2 == n { print $NF; exit }'; }
@@ -125,8 +137,10 @@ smoke() {
 
 # Build the show binary, keep the running one as bc101.prev, restart on the new one and make sure
 # it answers. On failure the previous binary is restored (systemd then restarts it if needed).
+LIVE= # set by go_live: on (the show runs the new build) or off (it uses it when switched on)
+
 go_live() {
-  local want have dead end restarts n
+  local want have dead end restarts n pid
   cd "$TVTV_HOME"
   ln -f bc101 bc101.prev
   if ! make_q bc101; then
@@ -134,40 +148,44 @@ go_live() {
     return 1
   fi
   want=$(stat -c %i bc101)
-  # Switched off (bc101.socket would start the show on our reexec): stay off, like a TV whose
-  # programme is changed while it is off. Without the unit (tests) the show answers or refuses.
-  if [[ $(systemctl show -p LoadState --value bc101 2>/dev/null) == loaded &&
-    $(systemctl show -p ActiveState --value bc101 2>/dev/null) != active ]] ||
-    ! ctl reexec > /dev/null 2>&1; then
-    echo "tv: built; the show is off, it uses the new build when it starts" >&2
+  # Switched off: stay off, like a TV whose programme is changed while it is off. Without the
+  # unit (tests) a show that refuses the reexec is off.
+  if show_off || ! ctl reexec > /dev/null 2>&1; then
+    echo "tv: built; the show is off, it uses the new build when it is switched on" >&2
     rm -f bc101.prev
+    LIVE=off
     return 0
   fi
   # Up to 12 s for the new binary to answer. It is dead when systemd counts a restart (under
   # bc101.socket a dead show still accepts connections, so silence takes 3 s per question), or,
   # without the unit, when it refuses for 3 s; then the old one goes back right away.
-  restarts=$(systemctl show -p NRestarts --value bc101 2>/dev/null) || restarts=
+  restarts=$(unit NRestarts)
   dead=0
   end=$((SECONDS + 12))
   while ((SECONDS < end)); do
     sleep 0.5
     have=$(ctl status 2>/dev/null | sed -n 's/.* ino=\([0-9]*\).*/\1/p') || true
     [[ ${have:-} == "$want" ]] && break
-    n=$(systemctl show -p NRestarts --value bc101 2>/dev/null) || n=
+    n=$(unit NRestarts)
     [[ -n $restarts && -n $n && $n != "$restarts" ]] && break
     if [[ -z ${have:-} ]]; then ((++dead >= 6)) && break; else dead=0; fi
   done
   if [[ ${have:-} != "$want" ]]; then
     echo "tv: the show did not come back on the new build -- rolling back" >&2
     mv -f bc101.prev bc101
+    # A new build that hangs is never restarted by systemd (Restart=on-failure): end it, as the
+    # same user, so the next start runs the previous binary.
+    pid=$(unit MainPID)
+    if [[ ${pid:-0} -gt 0 ]]; then kill -KILL "$pid" 2>/dev/null || true; fi
     return 1
   fi
   rm -f bc101.prev
+  LIVE=on
   echo "tv: on air" >&2
 }
 
 upload() {
-  local name=$1 dst tmp size kind count
+  local name=$1 dst tmp size kind count where
   valid_name "$name" || die 2 "visual name: a-z, 0-9 and _, 1-16 chars, starting with a letter"
   kind=$(kind_of "$name")
   [[ -z $kind || $kind == visual ]] || die 2 "'$name' is a built-in scene"
@@ -193,7 +211,8 @@ upload() {
   log "upload $name ($size bytes)"
   if make_q build/preview && smoke "$name" && go_live; then
     rm -f "$dst.prev"
-    log "upload $name: on air as channel $("$BIN" -l | awk -v n="$name" '$2 == n { print $1 }')"
+    if [[ $LIVE == on ]]; then where="on air"; else where="built (show off)"; fi
+    log "upload $name: $where as channel $("$BIN" -l | awk -v n="$name" '$2 == n { print $1 }')"
     echo "tv: $name is channel $("$BIN" -l | awk -v n="$name" '$2 == n { print $1 }')"
     return 0
   fi
@@ -206,8 +225,9 @@ remove() {
   local name=$1
   valid_name "$name" || die 2 "bad name"
   [[ -f $TVTV_HOME/visuals/$name.c ]] || die 1 "no visual '$name' (ssh zapper list)"
-  # if it is on air, move on first; the restart then has nothing to resume
-  if ctl status 2>/dev/null | grep -q "^scene=$name "; then
+  # if it is on air, move on first; the restart then has nothing to resume (and asking a show
+  # that is off would switch it on)
+  if ! show_off && ctl status 2>/dev/null | grep -q "^scene=$name "; then
     ctl next > /dev/null 2>&1 || true
     sleep 1
   fi
