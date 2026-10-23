@@ -222,6 +222,18 @@ Code from members is still code. The protection is not a filter over the source 
 
 The one cost is CPU. The Pi has one core and the show wants all of it; an open SSH session spends some on encryption, and the zapper polls the show twice a second. A few long frames while someone is zapping are the price of the remote.
 
+### Doom on the remote
+
+The most-asked-for channel is not a channel. `ssh -t zapper doom` puts Doom on the tube and turns the SSH terminal into the controller; in the zapper it is the key `d`, and `doom freedoom1 e1m3 4` goes straight into a level. The obvious package does not work here. Chocolate Doom from the distribution draws through SDL2, and SDL2's KMS backend only accepts a connector that reports "connected"; a composite output cannot know whether a TV is plugged in, so it stays "unknown", and Debian's SDL2 has no framebuffer fallback. The engine is therefore fbdoom, Chocolate Doom for a plain framebuffer, vendored under `third_party/fbdoom` with our changes on top. It stretches its 320 by 200 pixels over the whole PAL picture, which is the 4:3 the game was drawn for. An early build, still centred and unstretched, ran a timedemo at 66.7 frames per second on the Pi 1.
+
+The show and Doom take turns. The sequencer learned one command, `yield <pid>`: it stops drawing, keeps answering its socket and waits for that process to end; any zapping meanwhile asks it to end, with SIGTERM and after two seconds SIGKILL. The dispatcher checks the WAD and the level against the WAD's own directory, asks for the screen with its own process id and then becomes Doom through `exec`, so the process the show waits for is Doom itself. When Doom ends, by its menu, by Ctrl-C, by a lost connection or by somebody zapping, the next scene fades in.
+
+The hard part is the keyboard. A terminal sends characters, not keys: an arrow sends one escape sequence, holding it sends repeats after half a second, and letting go sends nothing at all. Doom needs exactly that last event. Terminals that speak the kitty keyboard protocol, such as kitty, Ghostty, WezTerm or Alacritty, report presses, repeats and releases, and lone Ctrl, Shift and Alt; Doom asks for the protocol when it starts and, where the answer comes back, plays as on a real keyboard. Everywhere else a movement key counts as held until it stops repeating: 0.55 seconds after the first press, which bridges the terminal's repeat delay, and 0.12 seconds after each repeat. Letters still type, so cheats and savegame names work. The terminal is put back as it was on every way out, from the signal handler as well, because the show may follow its SIGTERM with a SIGKILL.
+
+The vendored engine brought two surprises from its embedded past. Its keyboard code, finding no console, left its file descriptor at 3, whatever file that happened to be, and would have read that file's bytes as keystrokes; and an engine error ended in an endless loop instead of an exit, which would have held the tube forever. Both are fixed now.
+
+Doom also changes what a key means. Until now an op key could only zap; now any key starts an engine from 1993, written for trusted data, outside the show's sandbox, with keystrokes and a WAD that key chooses. That is as far as it reaches: the rights of `zapper`, the same as an admin key's visual.
+
 ## 8. Making-of with an AI
 
 The show was programmed by Claude, Anthropic's AI model, working over SSH from a Mac. It never saw the TV. A human in the space did: reported the black and white picture, the flicker, read the numbers off the test card, and said when something looked wrong. Everything else, the C code, the tools, the slides, the scripts, came out of that conversation.
