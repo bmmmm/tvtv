@@ -147,8 +147,9 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
   run ctl tune 7
   [ "$status" -eq 0 ]
   sleep 0.5
-  # killed by the show: a zombie until this shell reaps it (sshd does that at once for Doom)
-  [[ $(awk '{ print $3 }' "/proc/$p/stat") == Z ]]
+  # sleep 30 cannot end on its own by now: gone, or a zombie until this shell reaps it, means
+  # the show killed it
+  [[ ! -e /proc/$p ]] || [[ $(awk '{ print $3 }' "/proc/$p/stat") == Z ]]
   wait "$p" 2> /dev/null || true
   sleep 0.5
   run ctl status
