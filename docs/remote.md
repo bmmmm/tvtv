@@ -132,6 +132,35 @@ Keys: `tv-keys add <who> <op|admin> [file]`, `tv-keys rm <who>`, `tv-keys list`.
 `journalctl -t tvtv`. The show runs on one core; an open SSH session costs it some of that, so
 a few long frames while the zapper is open are the price of the remote, not a bug.
 
+## A new player
+
+Every device that steers the show gets its own key and its own name. A name holds one key:
+`tv-keys add` with a name that exists replaces that key, so a second laptop of the same
+person is `alice-laptop`, not `alice` again. The log then also says which device zapped.
+
+The player, on the new device (it must reach the Pi: the LAN, or the tailnet with the
+bc101 relays' routes; `nc -vz <the pi> 22` tells):
+
+```sh
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_zapper -N '' -C <name>
+cat ~/.ssh/id_ed25519_zapper.pub          # this line goes to an admin; it is not a secret
+```
+
+An admin, from a machine with the deploying login, picks the role (`op` zaps, `admin` also
+uploads and deletes) and adds the key:
+
+```sh
+ssh tvtv-deploy sudo tv-keys add <name> op < <name>.pub
+ssh tvtv-deploy sudo tv-keys list         # name, role, fingerprint
+```
+
+The player again: the alias block above in `~/.ssh/config`, or `scripts/tv config` with
+host, user `zapper` and the key. Then `ssh zapper status` answers `ok`, and `ssh zapper` opens
+the zapper. A key that is not on the list gets `Permission denied (publickey)`.
+
+To take a player off: `ssh tvtv-deploy sudo tv-keys rm <name>`; the next login fails with
+`Permission denied (publickey)`.
+
 ## Visuals
 
 A visual is a scene like the ones in `src/scenes/`: a file that includes `core.h` and ends in
