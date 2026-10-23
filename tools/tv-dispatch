@@ -217,11 +217,33 @@ fetch() {
 
 # ---------- doom ----------
 
-wads() { # the WAD names, lower case, once each
+is_iwad() { [[ $(head -c 4 "$1" 2>/dev/null) == IWAD ]]; } # a game, not an add-on (PWAD)
+
+# has_lump <wad> <NAME>: the WAD's directory names that lump. Header: "IWAD", the number of
+# lumps and the directory's offset (little endian); an entry: offset, size, 8 bytes of name.
+has_lump() {
+  local hdr n ofs
+  hdr=$(od -A n -t u4 -j 4 -N 8 "$1" 2>/dev/null) || return 1
+  read -r n ofs <<< "$hdr"
+  [[ $n =~ ^[0-9]+$ && $ofs =~ ^[0-9]+$ ]] || return 1
+  ((n > 0 && n < 65536)) || return 1
+  # awk reads everything: no reader that quits early, so no SIGPIPE under pipefail
+  od -A n -v -t u1 -j "$ofs" -N $((n * 16)) "$1" | awk -v want="$2" '
+    { for (i = 1; i <= NF; i++) {
+        b[k % 16] = $i; k++
+        if (k % 16 == 0) {
+          s = ""
+          for (j = 8; j < 16 && b[j] > 0; j++) s = s sprintf("%c", b[j])
+          if (s == want) found = 1
+        } } }
+    END { exit !found }'
+}
+
+wads() { # the IWAD names, lower case, once each
   local d f n
   for d in $DOOM_WADS; do
     for f in "$d"/*.[wW][aA][dD]; do
-      [[ -f $f ]] || continue
+      if ! [[ -f $f ]] || ! is_iwad "$f"; then continue; fi
       n=$(basename "${f%.*}" | tr '[:upper:]' '[:lower:]')
       if valid_name "$n"; then echo "$n"; fi
     done
@@ -248,12 +270,15 @@ doom() {
   valid_name "$wad" || die 2 "usage: doom [wad] [level] [skill] -- ssh zapper doom list"
   path=$(wad_path "$wad")
   [[ -n $path ]] || die 1 "no WAD '$wad' (ssh zapper doom list)"
+  is_iwad "$path" || die 1 "$wad is an add-on (PWAD), not a game"
   case $level in
     "") ;;
     e[1-4]m[1-9]) args+=(-warp "${level:1:1}" "${level:3:1}") ;;
     map0[1-9] | map[12][0-9] | map3[0-2]) args+=(-warp "$((10#${level:3}))") ;;
     *) die 2 "level: e1m1 .. e4m9 or map01 .. map32" ;;
   esac
+  # Doom 1 WADs have ExMy, Doom 2 ones MAPxx; -warp would quietly start something else
+  [[ -z $level ]] || has_lump "$path" "${level^^}" || die 1 "$wad has no level $level"
   if [[ -n $skill ]]; then
     [[ $skill =~ ^[1-5]$ ]] || die 2 "skill: 1 to 5, after a level"
     args+=(-skill "$skill")

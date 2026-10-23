@@ -66,11 +66,37 @@ tv() {
   [ "$status" -eq 3 ]
 }
 
-@test "doom: list finds WADs on the stick and in the system, any case" {
+# le32 <n>: four bytes, little endian (the inner printf writes the escapes, the outer the bytes)
+le32() {
+  # shellcheck disable=SC2059
+  printf "$(printf '\\x%02x\\x%02x\\x%02x\\x%02x' $(($1 & 255)) $(($1 >> 8 & 255)) $(($1 >> 16 & 255)) $(($1 >> 24 & 255)))"
+}
+
+# wad <file> <IWAD|PWAD> <lump>...: a WAD with an empty lump of each name; as in Doom's own
+# files, the directory comes after the data (here 4 bytes of it)
+wad() {
+  local f=$1 kind=$2 name i
+  shift 2
+  {
+    printf '%s' "$kind"
+    le32 $#
+    le32 16
+    printf 'DATA'
+    for name in "$@"; do
+      le32 12
+      le32 0
+      printf '%s' "$name"
+      for ((i = ${#name}; i < 8; i++)); do printf '\0'; done
+    done
+  } > "$f"
+}
+
+@test "doom: list finds the games on the stick and in the system, any case" {
   mkdir -p "$T/stick" "$T/games"
-  : > "$T/stick/FREEDOOM1.WAD"
-  : > "$T/games/freedoom2.wad"
-  : > "$T/games/not-a-name.wad"
+  wad "$T/stick/FREEDOOM1.WAD" IWAD E1M1
+  wad "$T/games/freedoom2.wad" IWAD MAP01
+  wad "$T/games/not-a-name.wad" IWAD MAP01
+  wad "$T/games/addon.wad" PWAD MAP01
   TVTV_WADS="$T/stick $T/games $T/missing" run tv bob doom list
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'freedoom1\nfreedoom2')" ]
@@ -78,11 +104,20 @@ tv() {
 
 @test "doom: arguments are checked before anything starts" {
   mkdir -p "$T/stick"
-  : > "$T/stick/freedoom1.wad"
+  wad "$T/stick/freedoom1.wad" IWAD THINGS E1M1 LINEDEFS
+  wad "$T/stick/addon.wad" PWAD E1M1
   export TVTV_WADS="$T/stick"
   run tv bob doom nosuchwad
   [ "$status" -eq 1 ]
   [[ $output == *"no WAD 'nosuchwad'"* ]]
+  run tv bob doom addon
+  [ "$status" -eq 1 ]
+  [[ $output == *"add-on"* ]]
+  run tv bob doom freedoom1 e1m2
+  [ "$status" -eq 1 ]
+  [[ $output == *"has no level e1m2"* ]]
+  run tv bob doom freedoom1 map01
+  [ "$status" -eq 1 ]
   run tv bob doom freedoom1 e5m1
   [ "$status" -eq 2 ]
   run tv bob doom freedoom1 map33
