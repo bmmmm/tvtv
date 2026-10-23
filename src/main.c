@@ -11,9 +11,11 @@
 // executable (fonts/, slides/).
 //
 // Commands: status | list | log | ping | next | auto | tune <ch|name> | hold <ch|name> |
-//           play <ch|name> [seconds] | reexec
+//           play <ch|name> [seconds] | reexec | yield <pid>
 // Modes: auto plays the loop; hold repeats one scene until next/auto; once (play) shows a scene
 // one time and returns to the loop. Every change goes through the normal fade.
+// yield hands the screen to another process of ours (Doom, see tools/tv-dispatch) until it ends;
+// any command that changes the picture takes it back (SIGTERM, SIGKILL after 2 s).
 #include "core.h"
 #include "ctl.h"
 #include "remote.h"
@@ -53,6 +55,8 @@ static struct {
     int once_playing;
     const Scene *cur;
     int skip, reexec;
+    pid_t yield;          // the process that has the screen, 0 = the show
+    double yield_kill;    // when to stop asking it with SIGTERM, 0 = not asked yet
     double s0, start;
     float dur;
     int frames;
@@ -90,8 +94,20 @@ static const Scene *upcoming(void) {
     return S.sel[S.li];
 }
 
+static int alive(pid_t pid) { return kill(pid, 0) == 0 || errno == EPERM; }
+
+// A command that changes the picture ends a yield: the process is asked to quit; the loop
+// waits for it to be gone (and kills it after 2 s) before it draws again.
+static void take_back(void) {
+    if (S.yield && !S.yield_kill) {
+        kill(S.yield, SIGTERM);
+        S.yield_kill = now() + 2;
+    }
+}
+
 // Switch to sc after the fade; a scene already on air just changes mode.
 static void retune(const Scene *sc, Mode m, float secs) {
+    take_back();
     S.pin = sc;
     S.mode = m;
     S.once = secs;
@@ -112,9 +128,9 @@ static void handle(int cfd, char *req, float t) {
         const Scene *nx = upcoming();
         double el = now() - S.s0;
         snprintf(out, sizeof out,
-                 "ok\nscene=%s ch=%d t=%.1f dur=%.1f mode=%s next=%s nextch=%d fps=%.1f worst=%.1f ino=%lu up=%.0f\n",
+                 "ok\nscene=%s ch=%d t=%.1f dur=%.1f mode=%s next=%s nextch=%d fps=%.1f worst=%.1f ino=%lu up=%.0f yield=%d\n",
                  S.cur->name, scene_channel(S.cur), t, S.dur, mode_name[S.mode], nx->name, scene_channel(nx),
-                 el > 0 ? S.frames / el : 0.0, S.worst * 1000, self_inode(), now() - S.start);
+                 el > 0 ? S.frames / el : 0.0, S.worst * 1000, self_inode(), now() - S.start, (int)S.yield);
     } else if (!strcmp(a[0], "list")) {
         size_t l = (size_t)snprintf(out, sizeof out, "ok\n");
         scene_list_str(out + l, sizeof out - l);
@@ -125,12 +141,26 @@ static void handle(int cfd, char *req, float t) {
                 l += (size_t)snprintf(out + l, sizeof out - l, "%2d %-8s %5.1f fps  worst %5.1f ms  %d frames\n", ch,
                                       scene_by_channel(ch)->name, S.st[ch].frames / S.st[ch].secs,
                                       S.st[ch].worst * 1000, S.st[ch].frames);
+    } else if (!strcmp(a[0], "yield") && n == 2) {
+        char *end;
+        long pid = strtol(a[1], &end, 10);
+        if (*end || pid <= 1 || pid != (pid_t)pid || !alive((pid_t)pid)) {
+            snprintf(out, sizeof out, "err no such process: %s\n", a[1]);
+        } else if (S.yield && alive(S.yield)) {
+            snprintf(out, sizeof out, "err the screen is taken (pid %d)\n", (int)S.yield);
+        } else {
+            S.yield = (pid_t)pid;
+            S.yield_kill = 0;
+            snprintf(out, sizeof out, "ok\n");
+        }
     } else if (!strcmp(a[0], "next")) {
+        take_back();
         S.mode = M_AUTO;
         S.once_playing = 0;
         S.skip = 1;
         snprintf(out, sizeof out, "ok %s\n", upcoming()->name);
     } else if (!strcmp(a[0], "auto")) {
+        take_back();
         if (S.mode != M_AUTO) {
             S.mode = M_AUTO;
             S.once_playing = 0;
@@ -154,6 +184,7 @@ static void handle(int cfd, char *req, float t) {
             snprintf(out, sizeof out, "ok %d %s hold\n", scene_channel(sc), sc->name);
         }
     } else if (!strcmp(a[0], "reexec")) {
+        take_back();
         S.reexec = 1;
         S.skip = 1;
         snprintf(out, sizeof out, "ok restarting %s\n", self_path);
@@ -280,11 +311,35 @@ int main(int argc, char **argv) {
         if (S.mode == M_ONCE && S.once > 0) dur = S.once;
         S.dur = dur;
         double s0 = now(), prev = s0, next = s0, worst = 0;
-        int frames = 0;
+        int frames = 0, frames_cleared = 0;
         S.s0 = s0;
         S.frames = 0;
         S.worst = 0;
         while (run) {
+            if (S.yield) {
+                // Another process has the screen: answer the remote, draw nothing. Once it is
+                // gone the next scene starts and fades in; this one's frames do not count.
+                if (fb && !frames_cleared) {
+                    memset(fb, 0, fbsize);
+                    frames_cleared = 1;
+                }
+                if (lfd >= 0) {
+                    char req[CTL_MAX_REQ];
+                    int cfd;
+                    for (int k = 0; k < 4 && (cfd = ctl_accept(lfd, req, sizeof req)) >= 0; k++) handle(cfd, req, 0);
+                }
+                if (!alive(S.yield)) {
+                    S.yield = 0;
+                    S.yield_kill = 0;
+                    frames = 0;
+                    break;
+                }
+                if (S.yield_kill && now() > S.yield_kill) kill(S.yield, SIGKILL);
+                struct timespec ts = {0, (long)(FRAME * 1e9)};
+                nanosleep(&ts, NULL);
+                continue;
+            }
+            frames_cleared = 0;
             double tn = now();
             float t = (float)(tn - s0);
             float dt = (float)(tn - prev);

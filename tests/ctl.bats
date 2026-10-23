@@ -122,3 +122,47 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
   [[ $output == *"mode=hold"* ]]
   [[ $output == *"up=1"* ]] || [[ $output == *"up=0"* ]]
 }
+
+@test "yield hands the screen over until the process is gone" {
+  sleep 30 &
+  local p=$!
+  run ctl yield "$p"
+  [ "$status" -eq 0 ]
+  run ctl status
+  [[ $output == *"yield=$p"* ]]
+  run ctl yield $$
+  [ "$status" -eq 1 ]
+  [[ $output == *"taken"* ]]
+  kill "$p"
+  wait "$p" 2> /dev/null || true
+  sleep 0.5
+  run ctl status
+  [[ $output == *"yield=0"* ]]
+}
+
+@test "a channel change takes the screen back" {
+  sleep 30 &
+  local p=$!
+  ctl yield "$p" > /dev/null
+  run ctl tune 7
+  [ "$status" -eq 0 ]
+  sleep 0.5
+  # killed by the show: a zombie until this shell reaps it (sshd does that at once for Doom)
+  [[ $(awk '{ print $3 }' "/proc/$p/stat") == Z ]]
+  wait "$p" 2> /dev/null || true
+  sleep 0.5
+  run ctl status
+  [[ $output == *"yield=0"* ]]
+  ctl auto > /dev/null
+}
+
+@test "yield refuses what is not a running process" {
+  run ctl yield 1
+  [ "$status" -eq 1 ]
+  run ctl yield abc
+  [ "$status" -eq 1 ]
+  run ctl yield 999999999
+  [ "$status" -eq 1 ]
+  run ctl status
+  [[ $output == *"yield=0"* ]]
+}
