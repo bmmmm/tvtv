@@ -16,7 +16,7 @@ DIR="${BC101_DIR:-/opt/tvtv}"           # on the Pi, owned by the service user
 USER_REMOTE="${BC101_USER:-zapper}"     # the service user: runs the show, takes the ssh commands
 RSYNC_PATH="sudo -u $USER_REMOTE rsync" # write as the owner
 UNIT=/etc/systemd/system/bc101.service
-PARTS=(src slides system tools Makefile)
+PARTS=(src slides system tools third_party Makefile)
 cd "$(dirname "$0")/.."
 
 render_unit() { sed "s|@BC101_DIR@|$DIR|g; s|@BC101_USER@|$USER_REMOTE|g" system/bc101.service; }

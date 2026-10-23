@@ -10,7 +10,7 @@ VSRCS := $(sort $(wildcard $(VISUALS)/*.c))
 SRCS := $(filter-out src/tvctl.c,$(wildcard src/*.c src/scenes/*.c)) $(VSRCS)
 OBJS := $(SRCS:%.c=build/%.o) build/visuals.o
 
-all: bc101 tvctl fonts/big.psf fonts/small.psf
+all: bc101 tvctl fonts/big.psf fonts/small.psf $(if $(wildcard third_party/fbdoom),fbdoom)
 
 # A failed recipe (e.g. zcat on a corrupt .gz) must not leave a half-written target.
 .DELETE_ON_ERROR:
@@ -39,6 +39,30 @@ FORCE:
 build/visuals.o: build/visuals.c src/core.h src/scenes.h Makefile
 	$(CC) $(CFLAGS) -Isrc -c -o $@.tmp $< && mv $@.tmp $@
 
+# Doom on the framebuffer, started by the remote (tools/tv-dispatch: doom). Vendored, see
+# third_party/fbdoom/ORIGIN; its own Makefile is not used. Its warnings are upstream's.
+DOOMDIR := third_party/fbdoom
+DOOMSRC := $(addprefix $(DOOMDIR)/,i_main.c dummy.c am_map.c doomdef.c doomstat.c dstrings.c \
+	d_event.c d_items.c d_iwad.c d_loop.c d_main.c d_mode.c d_net.c f_finale.c f_wipe.c g_game.c \
+	hu_lib.c hu_stuff.c info.c i_cdmus.c i_endoom.c i_joystick.c i_scale.c i_sound.c i_system.c \
+	i_timer.c memio.c m_argv.c m_bbox.c m_cheat.c m_config.c m_controls.c m_fixed.c m_menu.c \
+	m_misc.c m_random.c p_ceilng.c p_doors.c p_enemy.c p_floor.c p_inter.c p_lights.c p_map.c \
+	p_maputl.c p_mobj.c p_plats.c p_pspr.c p_saveg.c p_setup.c p_sight.c p_spec.c p_switch.c \
+	p_telept.c p_tick.c p_user.c r_bsp.c r_data.c r_draw.c r_main.c r_plane.c r_segs.c r_sky.c \
+	r_things.c sha1.c sounds.c statdump.c st_lib.c st_stuff.c s_sound.c tables.c v_video.c \
+	wi_stuff.c w_checksum.c w_file.c w_file_stdc_unbuffered.c w_main.c w_wad.c z_zone.c \
+	i_video_fbdev.c i_input_tty.c i_input_term.c)
+DOOMOBJS := $(DOOMSRC:%.c=build/%.o)
+DOOMFLAGS := -O2 -w -DNORMALUNIX -DLINUX -DSNDSERV
+
+fbdoom: $(DOOMOBJS)
+	$(CC) -o $@.tmp $^ -lm && mv $@.tmp $@
+
+# a static pattern rule: beats the generic build/%.o above in every make version
+$(DOOMOBJS): build/$(DOOMDIR)/%.o: $(DOOMDIR)/%.c $(wildcard $(DOOMDIR)/*.h) Makefile
+	@mkdir -p $(dir $@)
+	$(CC) $(DOOMFLAGS) -c -o $@.tmp $< && mv $@.tmp $@
+
 # Offscreen renderer and benchmark, see tools/preview.c; builds on the Mac too (no fbdev).
 preview: build/preview
 
@@ -54,7 +78,7 @@ fonts/small.psf: $(FONTSRC)/Lat15-TerminusBold16.psf.gz Makefile
 	zcat $< > $@.tmp && mv $@.tmp $@
 
 clean:
-	rm -rf build bc101 tvctl fonts
+	rm -rf build bc101 tvctl fbdoom fonts
 
 .PHONY: all clean preview FORCE
 
