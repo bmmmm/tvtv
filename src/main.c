@@ -7,7 +7,7 @@
 //   bc101 remote [-s socket] [--admin] [--name who] [--frame]  the zapper
 // (ctl and remote are also the standalone client tvctl, see tvctl.c, which carries no scene code)
 // -x renders without a framebuffer (for tests on any Linux box), -s sets the socket path
-// (default: $RUNTIME_DIRECTORY/ctl under systemd). Fonts and slides are looked up next to the
+// (under systemd: the socket bc101.socket passes, else $RUNTIME_DIRECTORY/ctl). Fonts and slides are looked up next to the
 // executable (fonts/, slides/).
 //
 // Commands: status | list | log | ping | next | auto | tune <ch|name> | hold <ch|name> |

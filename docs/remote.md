@@ -34,10 +34,12 @@ number does), **once** shows a channel one time and returns to the loop (`play`)
 goes through the normal fade.
 
 The remote always switches the show on, as on a TV set: systemd holds the control socket open
-(`bc101.socket`), and the first command that arrives starts the show if it is not running.
-`systemctl stop bc101` is standby; `systemctl stop bc101.socket` unplugs it, the show goes off
-with it and the remote answers `show not reachable` until `systemctl start bc101.socket`. That
-is the way for maintenance, or for anything else that wants the framebuffer and tty1.
+(`bc101.socket`), and the first command that arrives starts the show if it is off. So
+`systemctl stop bc101` switches it off only until the next command, and an open zapper asks
+twice a second. `systemctl stop bc101.socket` unplugs it: the show goes off with it and the
+remote answers `show not reachable` until `systemctl start bc101.socket`. That is the way for
+maintenance, or for anything else that wants the framebuffer and tty1. An upload or `rm` while
+the show is off builds the new binary and leaves the show off.
 
 ## The zapper
 

@@ -11,6 +11,7 @@ setup_file() {
 }
 teardown_file() { kill "$(cat "$BATS_FILE_TMPDIR/pid")" 2> /dev/null || true; }
 setup() { cd "$BATS_TEST_DIRNAME/.." || exit 1; }
+teardown() { if [[ -n ${ACT_PID:-} ]]; then kill "$ACT_PID" 2> /dev/null || true; fi; }
 ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
 
 @test "status reports the running loop" {
@@ -193,9 +194,12 @@ fps() { ctl status | grep -o 'fps=[0-9.]*' | cut -d= -f2; }
 
 @test "socket activation: the first request starts the show, reexec keeps the socket" {
   command -v systemd-socket-activate > /dev/null || skip "no systemd-socket-activate"
-  local s=$BATS_TEST_TMPDIR/act
-  systemd-socket-activate -l "$s" ./bc101 -x -t 30 > /dev/null 2>&1 &
+  # as under systemd: RUNTIME_DIRECTORY set and the socket at its default place in it, so a show
+  # that took the path for its own would unlink systemd's socket at exit
+  local s=$BATS_TEST_TMPDIR/ctl
+  systemd-socket-activate -E RUNTIME_DIRECTORY="$BATS_TEST_TMPDIR" -l "$s" ./bc101 -x -t 30 > /dev/null 2>&1 &
   local pid=$!
+  ACT_PID=$pid
   for _ in $(seq 25); do [ -S "$s" ] && break; sleep 0.2; done
   run ./bc101 ctl -s "$s" status # nothing runs yet: this request starts the show
   [ "$status" -eq 0 ]

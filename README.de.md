@@ -72,14 +72,17 @@ voller Build dauert auf dem Pi 1 über eine Minute; eine geänderte Szene ist in
 **Im Alltag.**
 
 ```sh
-sudo systemctl stop|start|restart bc101                  # die Show in Schleife
+sudo systemctl stop|start|restart bc101                  # die Show in Schleife (stop: die Fernbedienung weckt sie)
+sudo systemctl stop|start bc101.socket                   # Stecker ziehen | einstecken: aus bis zum Start
 ~/tvtv/bc101 -l                                          # Szenen auflisten
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 juggle fire       # gewählte Szenen spielen
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 -t 120 explain    # nach 120 s beenden
 cat /run/bc101/anim.log                                  # mittlere fps und schlechtestes Bild je Szene (/tmp bei Handstart)
 ```
 
-Vor dem Starten von Hand den Dienst stoppen, sonst malen beide auf tty1. `explain`
+Vor dem Starten von Hand `bc101.socket` stoppen, sonst malen beide auf tty1: Nach einem Stopp
+von `bc101` allein schaltet jeder Befehl der Fernbedienung die Show wieder ein, und ein offener
+Zapper fragt zweimal pro Sekunde. `explain`
 (Making-of), `stack` (Technik im Detail) und `testcard` gehören nicht zur Standardschleife.
 Langsamer Boot? `sudo ~/tvtv/tools/boot-report.sh` schreibt Zeiten und Netzwerk-Logs in ein
 frisches `/tmp/boot-report.XXXXXX` und nennt den Namen (passwortartige Werte geschwärzt).

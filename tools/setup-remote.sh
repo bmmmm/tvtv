@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # One-time setup of the remote on the Pi; run as root, safe to run again. Creates the service user
 # zapper (TVTV_USER to change it), moves the show to /opt/tvtv (owned by it), installs the
-# dispatcher, the keys file, the sshd drop-in and the systemd unit, gives the deploying user exact
+# dispatcher, the keys file, the sshd drop-in and the systemd units, gives the deploying user exact
 # sudo rules for later deploys, then builds and (re)starts the service through tools/install.sh.
 # Called by `scripts/deploy.sh --setup`; by hand: sudo tools/setup-remote.sh [--deployer <user>]
 # (from a synced copy that does not belong to the service user). The deployer defaults to the

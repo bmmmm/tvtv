@@ -126,7 +126,7 @@ smoke() {
 # Build the show binary, keep the running one as bc101.prev, restart on the new one and make sure
 # it answers. On failure the previous binary is restored (systemd then restarts it if needed).
 go_live() {
-  local want have i dead
+  local want have dead end restarts n
   cd "$TVTV_HOME"
   ln -f bc101 bc101.prev
   if ! make_q bc101; then
@@ -134,18 +134,27 @@ go_live() {
     return 1
   fi
   want=$(stat -c %i bc101)
-  if ! ctl reexec > /dev/null 2>&1; then
-    echo "tv: built; the show is not running, it uses the new build when it starts" >&2
+  # Switched off (bc101.socket would start the show on our reexec): stay off, like a TV whose
+  # programme is changed while it is off. Without the unit (tests) the show answers or refuses.
+  if [[ $(systemctl show -p LoadState --value bc101 2>/dev/null) == loaded &&
+    $(systemctl show -p ActiveState --value bc101 2>/dev/null) != active ]] ||
+    ! ctl reexec > /dev/null 2>&1; then
+    echo "tv: built; the show is off, it uses the new build when it starts" >&2
     rm -f bc101.prev
     return 0
   fi
-  # Up to 12 s for the new binary to answer; a show that stays silent for 3 s is dead (systemd
-  # would be restarting the broken binary), so the old one goes back right away.
+  # Up to 12 s for the new binary to answer. It is dead when systemd counts a restart (under
+  # bc101.socket a dead show still accepts connections, so silence takes 3 s per question), or,
+  # without the unit, when it refuses for 3 s; then the old one goes back right away.
+  restarts=$(systemctl show -p NRestarts --value bc101 2>/dev/null) || restarts=
   dead=0
-  for ((i = 0; i < 24; i++)); do
+  end=$((SECONDS + 12))
+  while ((SECONDS < end)); do
     sleep 0.5
     have=$(ctl status 2>/dev/null | sed -n 's/.* ino=\([0-9]*\).*/\1/p') || true
     [[ ${have:-} == "$want" ]] && break
+    n=$(systemctl show -p NRestarts --value bc101 2>/dev/null) || n=
+    [[ -n $restarts && -n $n && $n != "$restarts" ]] && break
     if [[ -z ${have:-} ]]; then ((++dead >= 6)) && break; else dead=0; fi
   done
   if [[ ${have:-} != "$want" ]]; then

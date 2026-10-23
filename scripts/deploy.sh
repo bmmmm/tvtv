@@ -15,7 +15,9 @@ HOST="${BC101_HOST:-tvtv-deploy}"       # the deploying login; gets exact sudo r
 DIR="${BC101_DIR:-/opt/tvtv}"           # on the Pi, owned by the service user
 USER_REMOTE="${BC101_USER:-zapper}"     # the service user: runs the show, takes the ssh commands
 RSYNC_PATH="sudo -u $USER_REMOTE rsync" # write as the owner
-UNITS=(bc101.service bc101.socket) # in system/, installed to /etc/systemd/system/
+# In system/, installed to /etc/systemd/system/. The socket first: the service requires it, and a
+# Pi whose sudo rules predate the socket fails here, before the service file changes (run --setup).
+UNITS=(bc101.socket bc101.service)
 PARTS=(src slides system tools third_party Makefile)
 cd "$(dirname "$0")/.."
 
@@ -27,11 +29,13 @@ case "${1:-}" in
     rsync -ani --delete --rsync-path="$RSYNC_PATH" "${PARTS[@]}" "$HOST:$DIR/"
     for u in "${UNITS[@]}"; do
       rc=0
-      # shellcheck disable=SC2029 # $u is meant to expand locally
-      render_unit "$u" | ssh "$HOST" "diff -u /etc/systemd/system/$u -" || rc=$?
+      f=/etc/systemd/system/$u
+      # shellcheck disable=SC2029 # $f is meant to expand locally
+      render_unit "$u" | ssh "$HOST" "if [ -f $f ]; then diff -u $f -; else cat > /dev/null; exit 3; fi" || rc=$?
       case $rc in
         0) echo "$u: unchanged" ;;
         1) echo "$u: would be updated" ;;
+        3) echo "$u: would be created (needs --setup for its sudo rule)" ;;
         *) echo "$u: could not compare (rc $rc)" >&2; exit 1 ;;
       esac
     done

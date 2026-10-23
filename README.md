@@ -70,14 +70,17 @@ on the Pi 1; touching one scene rebuilds in about 6 s.
 **Day to day.**
 
 ```sh
-sudo systemctl stop|start|restart bc101                  # the looping show
+sudo systemctl stop|start|restart bc101                  # the looping show (stop: the remote wakes it)
+sudo systemctl stop|start bc101.socket                   # unplug | plug in: off until started again
 ~/tvtv/bc101 -l                                          # list scenes
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 juggle fire       # play chosen scenes
 sudo openvt -c 1 -s -f -- ~/tvtv/bc101 -t 120 explain    # stop after 120 s
 cat /run/bc101/anim.log                                  # average fps and worst frame per scene (/tmp when run by hand)
 ```
 
-Stop the service before starting scenes by hand, otherwise both draw on tty1. `explain`
+Stop `bc101.socket` before starting scenes by hand, otherwise both draw on tty1: after a stop
+of `bc101` alone, any remote command switches the show back on, and an open zapper asks twice
+a second. `explain`
 (making-of), `stack` (tech deep dive) and `testcard` are not part of the default loop. Slow
 boot? `sudo ~/tvtv/tools/boot-report.sh` writes timings and network logs to a fresh
 `/tmp/boot-report.XXXXXX` and prints its name (password-like values redacted).
