@@ -123,13 +123,23 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
   [[ $output == *"up=1"* ]] || [[ $output == *"up=0"* ]]
 }
 
+fps() { ctl status | grep -o 'fps=[0-9.]*' | cut -d= -f2; }
+
 @test "yield hands the screen over until the process is gone" {
+  ctl tune 7 > /dev/null
+  sleep 1.5
   sleep 30 &
   local p=$!
   run ctl yield "$p"
   [ "$status" -eq 0 ]
   run ctl status
   [[ $output == *"yield=$p"* ]]
+  # no frames while yielded: the scene's fps (frames / time on air) falls instead of holding
+  local f1 f2
+  f1=$(fps)
+  sleep 1
+  f2=$(fps)
+  awk -v a="$f1" -v b="$f2" 'BEGIN { exit !(b < 0.75 * a) }'
   run ctl yield $$
   [ "$status" -eq 1 ]
   [[ $output == *"taken"* ]]
@@ -138,6 +148,7 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
   sleep 0.5
   run ctl status
   [[ $output == *"yield=0"* ]]
+  ctl auto > /dev/null
 }
 
 @test "a channel change takes the screen back" {
@@ -163,6 +174,8 @@ ctl() { ./bc101 ctl -s "$SOCK" "$@"; }
   run ctl yield abc
   [ "$status" -eq 1 ]
   run ctl yield 999999999
+  [ "$status" -eq 1 ]
+  run ctl yield "$(cat "$BATS_FILE_TMPDIR/pid")" # the show itself
   [ "$status" -eq 1 ]
   run ctl status
   [[ $output == *"yield=0"* ]]

@@ -144,8 +144,11 @@ static void handle(int cfd, char *req, float t) {
     } else if (!strcmp(a[0], "yield") && n == 2) {
         char *end;
         long pid = strtol(a[1], &end, 10);
-        if (*end || pid <= 1 || pid != (pid_t)pid || !alive((pid_t)pid)) {
-            snprintf(out, sizeof out, "err no such process: %s\n", a[1]);
+        // only a process the show can end again, and never the show itself
+        if (*end || pid <= 1 || pid != (pid_t)pid || pid == getpid() || kill((pid_t)pid, 0) != 0) {
+            snprintf(out, sizeof out, "err no such process of ours: %s\n", a[1]);
+        } else if (S.reexec) {
+            snprintf(out, sizeof out, "err the show is restarting\n");
         } else if (S.yield && alive(S.yield)) {
             snprintf(out, sizeof out, "err the screen is taken (pid %d)\n", (int)S.yield);
         } else {
@@ -334,6 +337,7 @@ int main(int argc, char **argv) {
                     frames = 0;
                     break;
                 }
+                if (limit > 0 && now() - S.start > limit) take_back(); // -t ends the show anyway
                 if (S.yield_kill && now() > S.yield_kill) kill(S.yield, SIGKILL);
                 struct timespec ts = {0, (long)(FRAME * 1e9)};
                 nanosleep(&ts, NULL);
