@@ -447,6 +447,7 @@ static void draw_help(Out *o, int rows_avail) {
         "  i          Info: fps je Programm",
         "  u          so kommt ein neues Visual auf den Pi",
         "  x          Visual löschen (nur Admin-Keys)",
+        "  d          Doom: dieses Terminal ist der Controller",
         "  r          neu zeichnen       q  Ende",
         "",
         "  Programm 00 ist Standby: Bild aus, Show bleibt an.",
@@ -581,6 +582,33 @@ static void delete_visual(const char *name) {
     R.dirty = 1;
 }
 
+// Doom goes through the dispatcher too: it gets the screen from the show, and this terminal
+// becomes its controller until Doom ends (Ctrl-C, its menu, or someone zapping).
+static void play_doom(void) {
+    const char *d = getenv("TVTV_DISPATCH");
+    if (!d || !*d) {
+        say("Doom geht hier nur so: ssh -t zapper doom");
+        return;
+    }
+    raw_off();
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl(d, d, "doom", (char *)NULL);
+        _exit(127);
+    }
+    int st = 0;
+    if (pid > 0) waitpid(pid, &st, 0);
+    if (WIFEXITED(st) && WEXITSTATUS(st) != 0) { // a refusal; Doom itself ends with 0 or a signal
+        printf("\n[rc %d]  weiter mit einer Taste ", WEXITSTATUS(st));
+        fflush(stdout);
+        raw_only();
+        read_key(60000);
+    }
+    raw_on();
+    fetch_status();
+    R.dirty = 1;
+}
+
 static void handle_key(int k, double tnow) {
     if (R.confirm) {
         char name[20];
@@ -626,6 +654,7 @@ static void handle_key(int k, double tnow) {
         break;
     }
     case 'r': resized = 1; break;
+    case 'd': play_doom(); break;
     case K_ESC:
         if (R.view != V_MAIN) R.view = V_MAIN;
         else R.entry[0] = 0;

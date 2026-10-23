@@ -6,6 +6,7 @@
 #   ssh zapper 7  |  ssh zapper 07        switch to channel 7 and hold it
 #   ssh zapper status | list | log | next | auto | help
 #   ssh zapper tune <ch|name>  |  hold <ch|name>  |  play <ch|name> [seconds]
+#   ssh -t zapper doom [wad] [level] [skill]  |  ssh zapper doom list      Doom on the TV, played here
 #   ssh zapper upload <name> < name.c  |  rm <name>  |  fetch <name>        admin keys only
 # Roles: a key's line in /etc/tvtv/authorized_keys ends in "<who> <op|admin>" (tools/tv-keys.sh);
 # sshd tells us which key logged in (ExposeAuthInfo). Run by hand, e.g. from the console as user zapper,
@@ -20,6 +21,8 @@ TVTV_KEYS=${TVTV_KEYS:-/etc/tvtv/authorized_keys}
 TVTV_SOCK=${TVTV_SOCK:-/run/bc101/ctl}
 BIN=$TVTV_HOME/bc101  # the show: only for -l (the channel table)
 CTL=$TVTV_HOME/tvctl  # the client, built without scene code: an upload cannot break it
+DOOM=$TVTV_HOME/fbdoom
+DOOM_WADS=${TVTV_WADS:-/mnt /usr/share/games/doom} # where WADs are found: the USB stick first
 MAX_UPLOAD=262144 # bytes of C per visual
 MAX_VISUALS=32    # channels 30..61
 BUILD_TIMEOUT=900 # a full build takes over a minute on the Pi 1
@@ -78,6 +81,9 @@ tvtv remote -- ssh zapper [command]
   next | auto               skip | back to the loop
   tune <ch|name>            hold a channel          play <ch|name> [seconds]   show it once
   status | list | log       what is on | the channels | fps per channel
+  doom [wad] [level] [skill]  Doom on the TV, this terminal is the controller (ssh -t);
+                            level e1m1..e4m9 or map01..map32, skill 1-5; no level: the menu
+  doom list                 the WADs (USB stick, then the system's)
 admin keys:
   upload <name> < name.c    a new visual (channel 30+), C that defines const Scene scene_<name>
   rm <name> | fetch <name>  delete | download the source
@@ -209,6 +215,58 @@ fetch() {
   cat "$TVTV_HOME/visuals/$name.c"
 }
 
+# ---------- doom ----------
+
+wads() { # the WAD names, lower case, once each
+  local d f n
+  for d in $DOOM_WADS; do
+    for f in "$d"/*.[wW][aA][dD]; do
+      [[ -f $f ]] || continue
+      n=$(basename "${f%.*}" | tr '[:upper:]' '[:lower:]')
+      if valid_name "$n"; then echo "$n"; fi
+    done
+  done | sort -u
+}
+
+wad_path() { # the first file <name>.wad in DOOM_WADS, any case
+  local d f
+  for d in $DOOM_WADS; do
+    for f in "$d"/*.[wW][aA][dD]; do
+      [[ -f $f && $(basename "${f%.*}" | tr '[:upper:]' '[:lower:]') == "$1" ]] || continue
+      echo "$f"
+      return 0
+    done
+  done
+  return 0
+}
+
+# Doom draws while the show waits: `yield` hands the screen to this process, which then becomes
+# fbdoom (same pid). It ends with Doom; any zapping meanwhile ends Doom (tools/../src/main.c).
+doom() {
+  local wad=${1:-freedoom1} level=${2:-} skill=${3:-} path out
+  local args=()
+  valid_name "$wad" || die 2 "usage: doom [wad] [level] [skill] -- ssh zapper doom list"
+  path=$(wad_path "$wad")
+  [[ -n $path ]] || die 1 "no WAD '$wad' (ssh zapper doom list)"
+  case $level in
+    "") ;;
+    e[1-4]m[1-9]) args+=(-warp "${level:1:1}" "${level:3:1}") ;;
+    map0[1-9] | map[12][0-9] | map3[0-2]) args+=(-warp "$((10#${level:3}))") ;;
+    *) die 2 "level: e1m1 .. e4m9 or map01 .. map32" ;;
+  esac
+  if [[ -n $skill ]]; then
+    [[ $skill =~ ^[1-5]$ && -n $level ]] || die 2 "skill: 1 to 5, after a level"
+    args+=(-skill "$skill")
+  fi
+  [[ -t 0 && -t 1 ]] || die 2 "doom needs a terminal: ssh -t zapper doom"
+  [[ -x $DOOM ]] || die 1 "Doom is not built on this TV"
+  mkdir -p "$TVTV_HOME/doom"
+  out=$(ctl yield $$ 2>&1) || die 1 "the show keeps the screen: ${out#err }"
+  log "doom $wad $level $skill"
+  exec env HOME="$TVTV_HOME/doom" FBDOOM_INPUT=/dev/tty "$DOOM" -iwad "$path" "${args[@]}" \
+    > "$TVTV_HOME/doom/fbdoom.log" 2>&1
+}
+
 # ---------- main ----------
 
 identify
@@ -242,6 +300,15 @@ case ${a[0]:-} in
     [[ ${#a[@]} -eq 2 ]] || valid_secs "${a[2]}" || die 2 "seconds: a number up to 9999"
     log "play ${a[*]:1}"
     ctl play "${a[@]:1}"
+    ;;
+  doom)
+    if [[ ${a[1]:-} == list ]]; then
+      [[ ${#a[@]} -eq 2 ]] || die 2 "doom list takes no arguments"
+      wads
+    else
+      [[ ${#a[@]} -le 4 ]] || die 2 "usage: doom [wad] [level] [skill]"
+      doom "${a[@]:1}"
+    fi
     ;;
   upload) need_admin upload; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: upload <name> < name.c"; upload "${a[1]}" ;;
   rm) need_admin rm; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: rm <name>"; remove "${a[1]}" ;;

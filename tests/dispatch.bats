@@ -66,6 +66,41 @@ tv() {
   [ "$status" -eq 3 ]
 }
 
+@test "doom: list finds WADs on the stick and in the system, any case" {
+  mkdir -p "$T/stick" "$T/games"
+  : > "$T/stick/FREEDOOM1.WAD"
+  : > "$T/games/freedoom2.wad"
+  : > "$T/games/not-a-name.wad"
+  TVTV_WADS="$T/stick $T/games $T/missing" run tv bob doom list
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'freedoom1\nfreedoom2')" ]
+}
+
+@test "doom: arguments are checked before anything starts" {
+  mkdir -p "$T/stick"
+  : > "$T/stick/freedoom1.wad"
+  export TVTV_WADS="$T/stick"
+  run tv bob doom nosuchwad
+  [ "$status" -eq 1 ]
+  [[ $output == *"no WAD 'nosuchwad'"* ]]
+  run tv bob doom freedoom1 e5m1
+  [ "$status" -eq 2 ]
+  run tv bob doom freedoom1 map33
+  [ "$status" -eq 2 ]
+  run tv bob doom freedoom1 e1m1 6
+  [ "$status" -eq 2 ]
+  run tv bob doom freedoom1 '' 3
+  [ "$status" -eq 2 ]
+  run tv bob doom freedoom1 e1m1 3 extra
+  [ "$status" -eq 2 ]
+  # all fine, but bats has no terminal: refused before the show hands over the screen
+  run tv bob doom freedoom1 e1m1 3
+  [ "$status" -eq 2 ]
+  [[ $output == *"needs a terminal"* ]]
+  run tv bob status
+  [[ $output == *"yield=0"* ]]
+}
+
 @test "an unknown key is an op" {
   run tv mallory status
   [ "$status" -eq 0 ]

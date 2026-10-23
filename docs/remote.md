@@ -205,6 +205,45 @@ leaves `visuals/` alone.
   remains is that a visual's test run happens outside the sandbox, as `zapper`; a process it
   leaves behind has `zapper`'s rights and nothing more.
 
+## Doom
+
+```
+ssh -t zapper doom                      Doom's title and menu: new game, episode, skill
+ssh -t zapper doom freedoom1 e1m3 4     straight into a level, skill 1-5 (e1m1..e4m9, map01..map32)
+ssh zapper doom list                    the WADs: the USB stick (/mnt) first, then /usr/share/games/doom
+```
+
+In the zapper, `d` does the same. The picture goes to the TV, the keys come from your terminal,
+so the terminal needs `-t`. The show hands the screen over (`yield`, see `src/main.c`) and takes
+it back when Doom ends: Ctrl-C, Doom's own quit, a lost connection, or anybody zapping a
+channel meanwhile (that ends Doom: SIGTERM, SIGKILL after 2 s).
+
+| Key | |
+|---|---|
+| arrows, `w` `s` | walk and turn |
+| `a` `d` | strafe |
+| space, `f`, Ctrl | fire |
+| `e` | use: doors, switches |
+| Shift (or `r`, a toggle) | run |
+| Alt | strafe with the arrows |
+| `1`–`7`, Tab, Esc | weapons, map, menu |
+| Ctrl-C | quit |
+
+Terminals send key presses, not releases. Doom asks the terminal for the kitty keyboard
+protocol (kitty, Ghostty, WezTerm, foot, Alacritty, recent iTerm2); one that speaks it reports
+releases and lone Ctrl/Shift/Alt, and Doom plays like on a keyboard. Elsewhere (macOS
+Terminal, PuTTY) a movement key counts as held until it stops repeating: 0.55 s after the
+first press, 0.12 s after a repeat; tap twice for short steps. Doom puts the terminal back as
+it was on every way out.
+
+The engine is `third_party/fbdoom` (Chocolate Doom for a plain framebuffer, GPL-2.0-or-later,
+our changes on top, see `ORIGIN`), built by `make` as `fbdoom`. It stretches 320x200 over the
+720x288 picture, keeps its settings and saves in `/opt/tvtv/doom/` and logs to
+`/opt/tvtv/doom/fbdoom.log`. It runs as `zapper` in the SSH session, outside the show's
+sandbox, with the framebuffer through the group `video`; any key may start it. A WAD is data
+for a 1993 engine that trusts it: one from the stick runs with `zapper`'s rights at worst, so
+only put WADs on the stick you would also run.
+
 ## For developers
 
 `bc101 -x -s /tmp/ctl` runs the show headless with a control socket; `tvctl -s /tmp/ctl status`
