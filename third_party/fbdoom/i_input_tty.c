@@ -51,7 +51,9 @@ void term_events(void);
 #include "w_wad.h"
 #include "z_zone.h"
 
-int vanilla_keyboard_mapping = 1;
+// tvtv: 0, so savegame names take the typed character (data2), not the key (data1): with
+// terminal input, a s d e f w and space are movement keys and would be dropped from names
+int vanilla_keyboard_mapping = 0;
 
 // Is the shift key currently down?
 

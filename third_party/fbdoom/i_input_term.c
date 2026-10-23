@@ -98,11 +98,6 @@ static void key_event(int key, int ch, int event, int now)
 {
     if (key <= 0 || key > 255)
         return;
-    if (key == 'r' && event != EV_RELEASE && event != EV_REPEAT) {
-        // a terminal without releases cannot hold Shift: run is a toggle; 'r' still types
-        run_on = !run_on;
-        post(run_on ? ev_keydown : ev_keyup, KEY_RSHIFT, 0);
-    }
     switch (event) {
     case EV_PRESS:
         if (!held[key]) {
@@ -125,6 +120,12 @@ static void key_event(int key, int ch, int event, int now)
             post(ev_keyup, key, 0);
         else
             until[key] = now + (until[key] ? HOLD_REPEAT_MS : HOLD_FIRST_MS);
+    }
+    if (key == 'r' && (event == EV_TAP || event == EV_PRESS)) {
+        // a terminal without releases cannot hold Shift: run is a toggle. After the 'r' itself,
+        // which still types: a cheat (idbeholdr) resets on any other keydown in between
+        run_on = !run_on;
+        post(run_on ? ev_keydown : ev_keyup, KEY_RSHIFT, 0);
     }
 }
 
