@@ -39,7 +39,7 @@ static struct {
     Chan ch[CH_LIST_MAX];
     int nch;
     // last status
-    int ok, cur, nextch;
+    int ok, cur, nextch, yield; // yield: pid that has the screen (Doom), 0 = the show
     char scene[20], mode[8], next[20];
     float t, dur, fps, worst;
     unsigned long ino, up;
@@ -174,6 +174,7 @@ static int fetch_status(void) {
         else if (!strcmp(tok, "worst")) R.worst = (float)atof(v);
         else if (!strcmp(tok, "ino")) R.ino = strtoul(v, NULL, 10);
         else if (!strcmp(tok, "up")) R.up = strtoul(v, NULL, 10);
+        else if (!strcmp(tok, "yield")) R.yield = atoi(v);
     }
     R.ok = 1;
     return 0;
@@ -326,6 +327,20 @@ static void draw_status(Out *o) {
         draw_digits_row(o, 1);
         o_sgr(o, "90");
         o_fmt(o, "socket %s", R.sock);
+        o_nl(o);
+        draw_digits_row(o, 2);
+        o_nl(o);
+        return;
+    }
+    if (R.yield) { // Doom has the screen; the show waits, its scene is not on air
+        o_sgr(o, "41;97;1");
+        o_txt(o, " DOOM ");
+        o_sgr(o, "0;37");
+        o_txt(o, "  läuft auf dem Fernseher");
+        o_nl(o);
+        draw_digits_row(o, 1);
+        o_sgr(o, "90");
+        o_txt(o, "ein Programm wählen beendet Doom");
         o_nl(o);
         draw_digits_row(o, 2);
         o_nl(o);
