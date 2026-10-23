@@ -6,7 +6,8 @@
 // A terminal that speaks the kitty keyboard protocol reports presses and releases, including
 // Ctrl, Shift and Alt on their own; Doom then plays as with a real keyboard. Other terminals
 // send only characters and repeats, so a movement key counts as held until it stops repeating.
-// The terminal is put back the way it was on every way out: quit, Ctrl-C, SIGTERM, SIGHUP.
+// The terminal is put back the way it was on every exit and on SIGINT, SIGTERM and SIGHUP; a
+// crash (SIGSEGV, SIGKILL) leaves it as Doom set it, `reset` fixes that.
 
 #include <fcntl.h>
 #include <signal.h>
@@ -33,17 +34,15 @@
 enum { EV_TAP, EV_PRESS, EV_REPEAT, EV_RELEASE };
 
 static int term_fd = -1;
-static int is_tty;
 static struct termios saved;
-static int restored = 1;
-static volatile sig_atomic_t quit_signal;
+static volatile sig_atomic_t restored = 1;
 
 static int kitty;            // the terminal reports releases
 static int held[256];        // kitty: keys that are down
 static int until[256];       // otherwise: release time per key, 0 = up
 static int run_on;           // 'r' toggles running
 static unsigned char seq[64];
-static int seqlen, seq_at;
+static int seqlen, seq_at, seq_skip;
 
 static void put(const char *s)
 {
@@ -67,21 +66,23 @@ static void term_restore(void)
     tcsetattr(term_fd, TCSANOW, &saved);
 }
 
-// The terminal first (write and tcsetattr are async-signal-safe): a SIGKILL may follow before
-// the game loop gets to quit.
+// The terminal first (write and tcsetattr are async-signal-safe), then the signal's own end:
+// Doom may be anywhere, also in a loop that never looks at a flag.
 static void on_signal(int sig)
 {
     term_restore();
-    quit_signal = sig;
+    signal(sig, SIG_DFL);
+    raise(sig);
 }
 
-static void post(int type, int key)
+// ch is the typed character for cheats and savegame names, also when the key moves the player.
+static void post(int type, int key, int ch)
 {
     event_t ev = {0};
 
     ev.type = type;
     ev.data1 = key;
-    ev.data2 = type == ev_keydown && key < 0x80 ? key : 0;
+    ev.data2 = type == ev_keydown ? ch : 0;
     D_PostEvent(&ev);
 }
 
@@ -93,42 +94,37 @@ static int movement(int key)
         || key == KEY_FIRE || key == KEY_USE;
 }
 
-static void key_event(int key, int event, int now)
+static void key_event(int key, int ch, int event, int now)
 {
     if (key <= 0 || key > 255)
         return;
-    if (key == 'r') { // a terminal without releases cannot hold Shift: run is a toggle
-        if (event == EV_TAP || event == EV_PRESS) {
-            run_on = !run_on;
-            post(run_on ? ev_keydown : ev_keyup, KEY_RSHIFT);
-        }
-        return;
+    if (key == 'r' && event != EV_RELEASE && event != EV_REPEAT) {
+        // a terminal without releases cannot hold Shift: run is a toggle; 'r' still types
+        run_on = !run_on;
+        post(run_on ? ev_keydown : ev_keyup, KEY_RSHIFT, 0);
     }
     switch (event) {
     case EV_PRESS:
         if (!held[key]) {
             held[key] = 1;
-            post(ev_keydown, key);
+            post(ev_keydown, key, ch);
         }
         break;
     case EV_RELEASE:
         if (held[key]) {
             held[key] = 0;
-            post(ev_keyup, key);
+            post(ev_keyup, key, 0);
         }
         break;
     case EV_REPEAT:
         break;
     default:
-        if (!movement(key)) {
-            post(ev_keydown, key);
-            post(ev_keyup, key);
-        } else if (!until[key]) {
-            post(ev_keydown, key);
-            until[key] = now + HOLD_FIRST_MS;
-        } else {
-            until[key] = now + HOLD_REPEAT_MS;
-        }
+        // every press is a keydown, so a double tap moves twice in the menus
+        post(ev_keydown, key, ch);
+        if (!movement(key))
+            post(ev_keyup, key, 0);
+        else
+            until[key] = now + (until[key] ? HOLD_REPEAT_MS : HOLD_FIRST_MS);
     }
 }
 
@@ -157,28 +153,55 @@ static int doom_key(int c)
     return 0;
 }
 
+// What the key types: lower case ASCII, space, or nothing.
+static int typed(int c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return c - 'A' + 'a';
+    return c >= 0x20 && c < 0x7f ? c : 0;
+}
+
 static void quit(void)
 {
     I_Quit();
     exit(0);
 }
 
+static int f_key(int n) // the number in CSI n ~ (VT220, PuTTY, kitty)
+{
+    switch (n) {
+    case 11: return KEY_F1;
+    case 12: return KEY_F2;
+    case 13: return KEY_F3;
+    case 14: return KEY_F4;
+    case 15: return KEY_F5;
+    case 17: return KEY_F6;
+    case 18: return KEY_F7;
+    case 19: return KEY_F8;
+    case 20: return KEY_F9;
+    case 21: return KEY_F10;
+    case 23: return KEY_F11;
+    case 24: return KEY_F12;
+    }
+    return 0;
+}
+
 // One escape sequence from seq[0..seqlen): CSI (ESC [) or SS3 (ESC O).
 static void sequence(int now)
 {
     int val[3][3] = {{0}}, has[3][3] = {{0}}; // [field][subfield]: CSI key:.. ; mods:event ; text
-    int f = 0, s = 0, key = 0, code, mods, event;
+    int f = 0, s = 0, key = 0, ch = 0, code, mods, event;
     unsigned char final = seq[seqlen - 1];
     int i;
 
     if (seq[1] == 'O') { // SS3: application cursor keys and F1-F4
         switch (final) {
-        case 'A': key_event(KEY_UPARROW, EV_TAP, now); break;
-        case 'B': key_event(KEY_DOWNARROW, EV_TAP, now); break;
-        case 'C': key_event(KEY_RIGHTARROW, EV_TAP, now); break;
-        case 'D': key_event(KEY_LEFTARROW, EV_TAP, now); break;
+        case 'A': key_event(KEY_UPARROW, 0, EV_TAP, now); break;
+        case 'B': key_event(KEY_DOWNARROW, 0, EV_TAP, now); break;
+        case 'C': key_event(KEY_RIGHTARROW, 0, EV_TAP, now); break;
+        case 'D': key_event(KEY_LEFTARROW, 0, EV_TAP, now); break;
         case 'P': case 'Q': case 'R': case 'S':
-            key_event(KEY_F1 + final - 'P', EV_TAP, now);
+            key_event(KEY_F1 + final - 'P', 0, EV_TAP, now);
             break;
         }
         return;
@@ -192,7 +215,8 @@ static void sequence(int now)
         unsigned char c = seq[i];
 
         if (c >= '0' && c <= '9' && f < 3 && s < 3) {
-            val[f][s] = val[f][s] * 10 + c - '0';
+            if (val[f][s] < 1000000)
+                val[f][s] = val[f][s] * 10 + c - '0';
             has[f][s] = 1;
         } else if (c == ';') {
             f++;
@@ -215,26 +239,16 @@ static void sequence(int now)
         if (code == 'c' && (mods - 1) & 4 && event != EV_RELEASE) // Ctrl-C
             quit();
         key = doom_key(code);
+        ch = typed(code);
         break;
     case 'A': key = KEY_UPARROW; break;
     case 'B': key = KEY_DOWNARROW; break;
     case 'C': key = KEY_RIGHTARROW; break;
     case 'D': key = KEY_LEFTARROW; break;
     case 'P': case 'Q': case 'R': case 'S': key = KEY_F1 + final - 'P'; break;
-    case '~':
-        switch (code) {
-        case 15: key = KEY_F5; break;
-        case 17: key = KEY_F6; break;
-        case 18: key = KEY_F7; break;
-        case 19: key = KEY_F8; break;
-        case 20: key = KEY_F9; break;
-        case 21: key = KEY_F10; break;
-        case 23: key = KEY_F11; break;
-        case 24: key = KEY_F12; break;
-        }
-        break;
+    case '~': key = f_key(code); break;
     }
-    key_event(key, event, now);
+    key_event(key, ch, event, now);
 }
 
 void term_events(void)
@@ -244,25 +258,26 @@ void term_events(void)
 
     if (term_fd < 0)
         return;
-    if (quit_signal)
-        quit();
     now = I_GetTimeMS();
     while ((n = read(term_fd, b, sizeof b)) > 0) {
         for (i = 0; i < n; i++) {
             unsigned char c = b[i];
 
-            if (seqlen > 0) {
-                if (seqlen < (int) sizeof seq)
-                    seq[seqlen++] = c;
+            if (seq_skip) { // the rest of a sequence too long to be a key
+                if (c >= 0x40 && c <= 0x7e)
+                    seq_skip = 0;
+            } else if (seqlen > 0) {
+                seq[seqlen++] = c;
                 if (seqlen == 2 && c != '[' && c != 'O') { // Esc, then another key
                     seqlen = 0;
-                    key_event(KEY_ESCAPE, EV_TAP, now);
+                    key_event(KEY_ESCAPE, 0, EV_TAP, now);
                     i--;
                 } else if (seqlen > 2 && c >= 0x40 && c <= 0x7e) {
                     sequence(now);
                     seqlen = 0;
-                } else if (seqlen >= (int) sizeof seq) {
+                } else if (seqlen == (int) sizeof seq) {
                     seqlen = 0;
+                    seq_skip = 1;
                 }
             } else if (c == 0x1b) {
                 seq[0] = c;
@@ -271,18 +286,18 @@ void term_events(void)
             } else if (c == 0x03) {
                 quit();
             } else {
-                key_event(doom_key(c), EV_TAP, now);
+                key_event(doom_key(c), typed(c), EV_TAP, now);
             }
         }
     }
     if (seqlen == 1 && now - seq_at >= ESC_WAIT_MS) {
         seqlen = 0;
-        key_event(KEY_ESCAPE, EV_TAP, now);
+        key_event(KEY_ESCAPE, 0, EV_TAP, now);
     }
     for (k = 0; k < 256; k++) {
         if (until[k] && now - until[k] >= 0) {
             until[k] = 0;
-            post(ev_keyup, k);
+            post(ev_keyup, k, 0);
         }
     }
 }
@@ -302,6 +317,7 @@ void term_init(void)
 {
     const char *path = getenv("FBDOOM_INPUT");
     struct termios t;
+    sigset_t block, old;
 
     if (!path || !*path)
         return;
@@ -310,11 +326,13 @@ void term_init(void)
         perror(path);
         return;
     }
-    signal(SIGINT, on_signal);
-    signal(SIGTERM, on_signal);
-    signal(SIGHUP, on_signal);
-    is_tty = isatty(term_fd);
-    if (is_tty && tcgetattr(term_fd, &saved) == 0) {
+    // no signal halfway through: the handler would restore, then the rest switch it on again
+    sigemptyset(&block);
+    sigaddset(&block, SIGINT);
+    sigaddset(&block, SIGTERM);
+    sigaddset(&block, SIGHUP);
+    sigprocmask(SIG_BLOCK, &block, &old);
+    if (isatty(term_fd) && tcgetattr(term_fd, &saved) == 0) {
         t = saved;
         t.c_lflag &= ~(ICANON | ECHO | ISIG | IEXTEN);
         t.c_iflag &= ~(ICRNL | INLCR | IXON | BRKINT | ISTRIP);
@@ -322,10 +340,14 @@ void term_init(void)
         t.c_cc[VTIME] = 0;
         tcsetattr(term_fd, TCSANOW, &t);
         restored = 0;
-        I_AtExit(term_restore, true);
+        atexit(term_restore);
         put(TERM_ENTER);
         put(help);
         put(TERM_KEYS);
     }
+    signal(SIGINT, on_signal);
+    signal(SIGTERM, on_signal);
+    signal(SIGHUP, on_signal);
+    sigprocmask(SIG_SETMASK, &old, NULL);
     printf("I_InitInput: terminal input from %s\n", path);
 }

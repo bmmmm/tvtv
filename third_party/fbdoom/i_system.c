@@ -460,9 +460,8 @@ void I_Error (char *error, ...)
 
     exit(-1);
 #else
-    while (true)
-    {
-    }
+    // tvtv: end, so the show gets the screen back and the terminal is free (was: spin forever)
+    exit(-1);
 #endif
 }
 

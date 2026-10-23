@@ -61,6 +61,11 @@ static int fill_screen;
 static int *fill_x, *fill_y;
 static uint16_t pal16[256];
 
+static void text_mode(void)
+{
+    ioctl(STDIN_FILENO, KDSETMODE, KD_TEXT);
+}
+
 struct color {
     uint32_t b:8;
     uint32_t g:8;
@@ -202,9 +207,9 @@ void I_InitGraphics (void)
         if (fb.yres / SCREENHEIGHT < fb_scaling)
             fb_scaling = fb.yres / SCREENHEIGHT;
         if (fb.bits_per_pixel == 16 && ioctl(fd_fb, FBIOGET_FSCREENINFO, &fix) == 0
-            && fix.line_length == fb.xres * 2) {
-            fill_x = malloc(fb.xres * sizeof *fill_x);
-            fill_y = malloc(fb.yres * sizeof *fill_y);
+            && fix.line_length == fb.xres * 2
+            && (fill_x = malloc(fb.xres * sizeof *fill_x)) != NULL
+            && (fill_y = malloc(fb.yres * sizeof *fill_y)) != NULL) {
             for (i = 0; i < (int) fb.xres; i++)
                 fill_x[i] = i * SCREENWIDTH / fb.xres;
             for (i = 0; i < (int) fb.yres; i++)
@@ -227,13 +232,14 @@ void I_InitGraphics (void)
     I_InitInput();
 
     // tvtv: graphics mode on our console, or the kernel keeps drawing its text over the picture.
-    // After I_InitInput: it may wait for the terminal. Fails harmlessly when stdin is no console.
-    ioctl(STDIN_FILENO, KDSETMODE, KD_GRAPHICS);
+    // After I_InitInput: it may wait for the terminal. Fails harmlessly when stdin is no console
+    // (under the remote the show holds the console in graphics mode already).
+    if (ioctl(STDIN_FILENO, KDSETMODE, KD_GRAPHICS) == 0)
+        atexit(text_mode);
 }
 
 void I_ShutdownGraphics (void)
 {
-	ioctl(STDIN_FILENO, KDSETMODE, KD_TEXT);
 	Z_Free (I_VideoBuffer);
 	free(I_VideoBuffer_FB);
 }
