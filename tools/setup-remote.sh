@@ -108,16 +108,25 @@ fi
 # The USB stick (WADs for Doom): mounted when something looks at /mnt, unmounted after a minute
 # idle so it can be pulled, and a missing stick does not hold up the boot.
 owner=${deployer:-$U}
-[[ $owner != root ]] || owner=$U
+if [[ $owner == root ]] || ! getent passwd "$owner" > /dev/null; then owner=$U; fi
 line="/dev/sda1 /mnt vfat uid=$(id -u "$owner"),gid=$(id -g "$owner"),nosuid,nodev,noexec,nofail,noauto"
-line+=",x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.device-timeout=5s 0 0"
+line+=",x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.device-timeout=2s 0 0"
 if ! grep -qxF "$line" /etc/fstab; then
   sed -i '/^# tvtv: the USB stick/d; \|^/dev/sda1[[:space:]]|d' /etc/fstab
+  if [[ -s /etc/fstab && -n $(tail -c 1 /etc/fstab) ]]; then echo >> /etc/fstab; fi
   printf '# tvtv: the USB stick, see tools/setup-remote.sh\n%s\n' "$line" >> /etc/fstab
   systemctl daemon-reload
-  if [[ $(findmnt -n -o SOURCE /mnt 2> /dev/null) == /dev/sda1 ]]; then umount /mnt; fi
-  systemctl restart mnt.automount
-  echo "fstab: the USB stick mounts on /mnt when used"
+  systemctl stop mnt.automount 2> /dev/null || true # the old options, if any, go with it
+fi
+# on every run: a stick mounted by hand gives way to the automount
+if ! systemctl is-active --quiet mnt.automount; then
+  if findmnt -n -o SOURCE /mnt 2> /dev/null | grep -qx /dev/sda1 && ! umount /mnt; then
+    echo "warning: /mnt is busy; the stick mounts on demand after the next reboot" >&2
+  elif systemctl start mnt.automount; then
+    echo "fstab: the USB stick mounts on /mnt when used"
+  else
+    echo "warning: mnt.automount did not start (systemctl status mnt.automount)" >&2
+  fi
 fi
 
 "$DEST/tools/install.sh"
