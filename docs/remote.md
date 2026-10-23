@@ -91,7 +91,7 @@ installs the dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the emp
 `/etc/tvtv/authorized_keys`, the sshd drop-in `system/sshd-tv.conf` (checked with `sshd -t`,
 then reloaded) and the systemd unit, writes `/etc/sudoers.d/tvtv-deploy` for the deploying
 login (`rsync` and `make` as `zapper`, the unit file from stdin, `systemctl` for the service,
-`tv-keys`), and runs `tools/install.sh` (build as `zapper`, restart, health check). From then on
+`tv-keys`, the USB stick `/dev/sda1` mounted on and unmounted from `/mnt`), and runs `tools/install.sh` (build as `zapper`, restart, health check). From then on
 plain `scripts/deploy.sh` targets `/opt/tvtv` without prompts. The old checkout in the
 deploying login's home can go.
 

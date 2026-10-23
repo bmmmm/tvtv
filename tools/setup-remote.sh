@@ -78,7 +78,7 @@ rm -f "$drop"
 sed "s|@BC101_DIR@|$DEST|g; s|@BC101_USER@|$U|g" system/bc101.service > /etc/systemd/system/bc101.service
 
 # Exact sudo rules for the deploying user: build and sync as the service user, the unit file
-# from stdin, the service, the keys. Nothing that runs a file the service user can write.
+# from stdin, the service, the keys, the USB stick /dev/sda1 on /mnt. Nothing that runs a file the service user can write.
 if [[ -n $deployer && $deployer != root ]] && getent passwd "$deployer" > /dev/null; then
   rules=$(mktemp)
   cat > "$rules" <<RULES
@@ -87,7 +87,9 @@ Cmnd_Alias TVTV_AS_TV = $(command -v rsync), $(command -v make)
 Cmnd_Alias TVTV_ROOT = $(command -v tee) /etc/systemd/system/bc101.service, \\
     $(command -v systemctl) daemon-reload, $(command -v systemctl) enable --quiet bc101, \\
     $(command -v systemctl) restart bc101, $(command -v systemctl) stop bc101, \\
-    $(command -v systemctl) start bc101, /usr/local/sbin/tv-keys
+    $(command -v systemctl) start bc101, /usr/local/sbin/tv-keys, \\
+    $(command -v mount) -o uid=$(id -u "$deployer")\\,gid=$(id -g "$deployer")\\,nosuid\\,nodev\\,noexec /dev/sda1 /mnt, \\
+    $(command -v umount) /mnt
 $deployer ALL=($U) NOPASSWD: TVTV_AS_TV
 $deployer ALL=(root) NOPASSWD: TVTV_ROOT
 RULES
