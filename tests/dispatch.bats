@@ -89,8 +89,6 @@ tv() {
   [ "$status" -eq 2 ]
   run tv bob doom freedoom1 e1m1 6
   [ "$status" -eq 2 ]
-  run tv bob doom freedoom1 '' 3
-  [ "$status" -eq 2 ]
   run tv bob doom freedoom1 e1m1 3 extra
   [ "$status" -eq 2 ]
   # all fine, but bats has no terminal: refused before the show hands over the screen

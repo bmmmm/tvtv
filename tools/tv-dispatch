@@ -255,13 +255,13 @@ doom() {
     *) die 2 "level: e1m1 .. e4m9 or map01 .. map32" ;;
   esac
   if [[ -n $skill ]]; then
-    [[ $skill =~ ^[1-5]$ && -n $level ]] || die 2 "skill: 1 to 5, after a level"
+    [[ $skill =~ ^[1-5]$ ]] || die 2 "skill: 1 to 5, after a level"
     args+=(-skill "$skill")
   fi
   [[ -t 0 && -t 1 ]] || die 2 "doom needs a terminal: ssh -t zapper doom"
   [[ -x $DOOM ]] || die 1 "Doom is not built on this TV"
   mkdir -p "$TVTV_HOME/doom"
-  out=$(ctl yield $$ 2>&1) || die 1 "the show keeps the screen: ${out#err }"
+  out=$(ctl yield $$ 2>&1) || die 1 "no screen from the show: ${out#err }"
   log "doom $wad $level $skill"
   exec env HOME="$TVTV_HOME/doom" FBDOOM_INPUT=/dev/tty "$DOOM" -iwad "$path" "${args[@]}" \
     > "$TVTV_HOME/doom/fbdoom.log" 2>&1

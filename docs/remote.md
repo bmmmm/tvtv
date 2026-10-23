@@ -204,19 +204,25 @@ leaves `visuals/` alone.
   plus fixed `systemctl` commands, and the setup refuses to run from a tree `zapper` owns. What
   remains is that a visual's test run happens outside the sandbox, as `zapper`; a process it
   leaves behind has `zapper`'s rights and nothing more.
+- Doom is the exception to "op only zaps": any key starts a 1993 C engine as `zapper`, outside
+  the sandbox, fed with that key's keystrokes and a WAD from the list below. A bug in the
+  engine is therefore as far as an op key reaches: `zapper`'s rights, like an admin key.
 
 ## Doom
 
 ```
 ssh -t zapper doom                      Doom's title and menu: new game, episode, skill
 ssh -t zapper doom freedoom1 e1m3 4     straight into a level, skill 1-5 (e1m1..e4m9, map01..map32)
-ssh zapper doom list                    the WADs: the USB stick (/mnt) first, then /usr/share/games/doom
+ssh zapper doom list                    the WADs on the USB stick (/mnt) and in /usr/share/games/doom
 ```
 
-In the zapper, `d` does the same. The picture goes to the TV, the keys come from your terminal,
-so the terminal needs `-t`. The show hands the screen over (`yield`, see `src/main.c`) and takes
-it back when Doom ends: Ctrl-C, Doom's own quit, a lost connection, or anybody zapping a
-channel meanwhile (that ends Doom: SIGTERM, SIGKILL after 2 s).
+A name on both is taken from the stick. In the zapper, `d` starts Doom's menu. The picture goes
+to the TV, the keys come from your terminal, so the terminal needs `-t`. The show hands the
+screen over (`yield`, see `src/main.c`) and takes it back when Doom ends: Ctrl-C, Doom's own
+quit, an engine error, a lost connection (once sshd notices, up to two minutes; a key that
+was held stays held until then), or anybody zapping a channel meanwhile (that ends Doom:
+SIGTERM, SIGKILL after 2 s). The level is not checked against the WAD: `e1m1` is for Doom 1
+WADs like freedoom1, `map01` for Doom 2 ones like freedoom2.
 
 | Key | |
 |---|---|
@@ -233,12 +239,13 @@ Terminals send key presses, not releases. Doom asks the terminal for the kitty k
 protocol (kitty, Ghostty, WezTerm, foot, Alacritty, recent iTerm2); one that speaks it reports
 releases and lone Ctrl/Shift/Alt, and Doom plays like on a keyboard. Elsewhere (macOS
 Terminal, PuTTY) a movement key counts as held until it stops repeating: 0.55 s after the
-first press, 0.12 s after a repeat; tap twice for short steps. Doom puts the terminal back as
-it was on every way out.
+first press, 0.12 s after a repeat; tap twice for short steps. Letters still type, so cheats
+and savegame names work. Doom puts the terminal back as it was when it ends or gets SIGINT,
+SIGTERM or SIGHUP; after a crash `reset` does it.
 
 The engine is `third_party/fbdoom` (Chocolate Doom for a plain framebuffer, GPL-2.0-or-later,
 our changes on top, see `ORIGIN`), built by `make` as `fbdoom`. It stretches 320x200 over the
-720x288 picture, keeps its settings and saves in `/opt/tvtv/doom/` and logs to
+720x288 picture, keeps its settings and saves in `/opt/tvtv/doom/.fdoom.tar/` and logs to
 `/opt/tvtv/doom/fbdoom.log`. It runs as `zapper` in the SSH session, outside the show's
 sandbox, with the framebuffer through the group `video`; any key may start it. A WAD is data
 for a 1993 engine that trusts it: one from the stick runs with `zapper`'s rights at worst, so
