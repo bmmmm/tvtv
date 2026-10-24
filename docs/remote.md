@@ -78,7 +78,7 @@ Three accounts take part on the Pi, and keeping them apart is most of the setup:
 | Login | Who | Rights |
 |---|---|---|
 | your own | a person | sudo with a password; needed once, for the setup |
-| `deploy` | the deploy automation (`scripts/deploy.sh`, `tv-keys`) | exact sudo rules, no password; written by the setup |
+| `deploy` (any name; `BC101_HOST` in `.env` points at it) | the deploy automation (`scripts/deploy.sh`, `tv-keys`) | exact sudo rules, no password; written by the setup |
 | `zapper` | the remote | no shell, the dispatcher only, keys only |
 
 The setup needs root once, and only a person has that: the deploying login has no password and

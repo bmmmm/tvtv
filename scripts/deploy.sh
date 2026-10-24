@@ -7,11 +7,20 @@
 #            the remote, exact sudo rules for the deploying login). The deploying login itself
 #            has no password and no sudo for that, which is why this step is a person's.
 #            BC101_SETUP_HOST=<login that may sudo> runs it right away over ssh -t instead.
+# Where to: BC101_HOST (and BC101_SETUP_HOST, BC101_DIR, BC101_USER) from the environment or from
+# .env at the top of the repo, see .env.example.
 # The systemd unit is rendered here and sent as is: the tree on the Pi belongs to the service
 # user, and nothing that user can write may reach root.
 set -euo pipefail
 
-HOST="${BC101_HOST:-tvtv-deploy}"       # the deploying login; gets exact sudo rules from --setup
+# shellcheck source=scripts/env.sh
+source "$(dirname "$0")/env.sh"
+load_env BC101_HOST BC101_SETUP_HOST BC101_DIR BC101_USER
+if [[ -z ${BC101_HOST:-} ]]; then
+  echo "deploy: no BC101_HOST: set the deploying login's ssh destination in .env (see .env.example)" >&2
+  exit 2
+fi
+HOST=$BC101_HOST                        # the deploying login; gets exact sudo rules from --setup
 DIR="${BC101_DIR:-/opt/tvtv}"           # on the Pi, owned by the service user
 USER_REMOTE="${BC101_USER:-zapper}"     # the service user: runs the show, takes the ssh commands
 RSYNC_PATH="sudo -u $USER_REMOTE rsync" # write as the owner

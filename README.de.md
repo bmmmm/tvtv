@@ -65,8 +65,9 @@ scripts/deploy.sh -n   # Probelauf: Dateiänderungen und der Diff der Unit
 scripts/deploy.sh      # rsync, make (inkrementell), bc101.service neu starten
 ```
 
-`BC101_HOST` benennt den SSH-Host (Standard `tvtv-deploy`); die Dateien landen dort in
-`~/tvtv`. Deploy schlägt fehl, wenn die Show nach dem Neustart nicht 3 s durchhält. Ein
+`BC101_HOST` benennt den SSH-Host des Deploy-Logins; er steht in `.env` (eine Kopie von
+`.env.example`, git ignoriert `.env`) oder in der Umgebung. Die Dateien landen dort in
+`/opt/tvtv`. Deploy schlägt fehl, wenn die Show nach dem Neustart nicht 3 s durchhält. Ein
 voller Build dauert auf dem Pi 1 über eine Minute; eine geänderte Szene ist in etwa 6 s gebaut.
 
 **Im Alltag.**

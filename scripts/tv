@@ -8,13 +8,20 @@
 #   tv --host 192.0.2.10 status     one call against another address
 #   tv config [host|user|identity [value]]   show or change the settings
 # Where the remote is: --host, else TV_HOST, else host= in the settings file, else zapper (an alias
-# in ~/.ssh/config with User zapper). The settings file ($XDG_CONFIG_HOME/tvtv/remote, default
-# ~/.config/tvtv/remote) holds key=value lines:
+# in ~/.ssh/config with User zapper). TV_HOST, TV_USER and TV_IDENTITY come from the environment
+# or from .env at the top of the repo (see .env.example) and win over the settings file
+# ($XDG_CONFIG_HOME/tvtv/remote, default ~/.config/tvtv/remote), which holds key=value lines:
 #   host=192.0.2.10
 #   user=zapper                          the remote's account; empty: ssh decides (the alias)
 #   identity=~/.ssh/id_ed25519_zapper    the key (a leading ~ is your home; ~user is not supported); empty: ssh decides
 # user and identity apply to every address, --host and TV_HOST included.
 set -euo pipefail
+here=$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2> /dev/null || echo "${BASH_SOURCE[0]}")")
+if [[ -f $here/env.sh ]]; then
+  # shellcheck source=scripts/env.sh
+  source "$here/env.sh"
+  load_env TV_HOST TV_USER TV_IDENTITY
+fi
 conf=${XDG_CONFIG_HOME:-$HOME/.config}/tvtv/remote
 keys=(host user identity)
 
@@ -62,8 +69,8 @@ fi
 host=${host:-$(setting host)}
 host=${host:-zapper}
 ssh=(ssh)
-user=$(setting user)
-identity=$(setting identity)
+user=${TV_USER:-$(setting user)}
+identity=${TV_IDENTITY:-$(setting identity)}
 [[ -n $user ]] && ssh+=(-l "$user")
 # IdentitiesOnly: an agent full of other keys would otherwise use up sshd's tries before this one
 [[ -n $identity ]] && ssh+=(-i "${identity/#\~/$HOME}" -o IdentitiesOnly=yes)

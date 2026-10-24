@@ -1,4 +1,6 @@
 .claude/
+# local settings (scripts/env.sh; the keys are in .env.example)
+/.env
 # build outputs (made on the Pi by `make`)
 /bc101
 /tvctl
