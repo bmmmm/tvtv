@@ -22,11 +22,12 @@ und allem, und Mitglieder mit Schlüssel schalten Programme um, halten eines fes
 eigenes Visual in C hoch, das zum eigenen Kanal wird. Siehe „Fernbedienung“ unten und
 [docs/remote.md](docs/remote.md) (Englisch).
 
-Die Kanäle 24 bis 26 kommen von Mastodon: eine Pixelwand, die jeder mit einem Post bemalt
-(`@tvtv px 12 30 rot`), Programme in dem0, einer winzigen Sprache für bewegte Bilder, die die Show
-Pixel für Pixel ausrechnet (`@tvtv code sin(x/16+t)*40+r*90`), und eine Seite wie im Videotext.
-Ein eigener Brückendienst sammelt sie ein; die Show liest nur die Datei, die er schreibt, und
-prüft jedes Byte davon.
+Die Kanäle 24 bis 26 kommen von Mastodon, aus Posts an
+[@bc101_TV@bonn.social](https://bonn.social/@bc101_TV): eine Pixelwand, die jeder mit einem Post
+bemalt (`@bc101_TV px 12 30 rot`), Programme in dem0, einer winzigen Sprache für bewegte Bilder,
+die die Show Pixel für Pixel ausrechnet (`@bc101_TV code sin(x/16+t)*40+r*90`), und eine Seite wie
+im Videotext. Ein eigener Brückendienst sammelt sie ein; die Show liest nur die Datei, die er
+schreibt, und prüft jedes Byte davon.
 
 ## Hardware
 

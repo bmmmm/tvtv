@@ -297,7 +297,7 @@ only put WADs on the stick you would also run.
 ## Social channels: 24 to 26
 
 Three channels show what people send to the TV from Mastodon, with a post to the bridge's
-account (`@tvtv@bonn.social`), or from a remote key:
+account (`@bc101_TV@bonn.social`), or from a remote key:
 
 | Channel | What | Sent as |
 |---|---|---|
