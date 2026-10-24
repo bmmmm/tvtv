@@ -83,11 +83,10 @@ TXT
     ;;
 esac
 
-# A Pi set up before the units were called tvtv-show has no sudo rule for them: say so before
-# anything changes there.
-# shellcheck disable=SC2029 # the unit's name is meant to expand locally
-if ! ssh "$HOST" "sudo -n -l tee /etc/systemd/system/${UNITS[0]}" > /dev/null 2>&1 < /dev/null; then
-  echo "deploy: $HOST may not install ${UNITS[0]}: the Pi's setup predates it, run scripts/deploy.sh --setup" >&2
+# A Pi set up before the units were called tvtv-show has no sudo rules for them (they are in
+# /etc/sudoers.d/tvtv-show, which anyone may see): say so before anything changes there.
+if ! ssh "$HOST" "test -e /etc/sudoers.d/tvtv-show" < /dev/null; then
+  echo "deploy: $HOST has no sudo rules for ${UNITS[0]}: the Pi's setup predates it, run scripts/deploy.sh --setup" >&2
   exit 1
 fi
 # Only tracked parts travel; build/, fonts/, visuals/ and the binaries stay on the Pi.

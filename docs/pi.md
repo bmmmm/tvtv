@@ -19,15 +19,15 @@ The AV input (streams, clips) and the native Doom engine on tvtv's branches `fea
 | Where | What | Owner |
 |---|---|---|
 | `/opt/tvtv/` | the show's tree: sources, build, uploaded `visuals/`, Doom's saves `doom/`, `VERSION` | `zapper` (it builds uploads) |
-| `/usr/local/lib/tvtv/` | every component's programs, named after it (`tv-dispatch`, `tvtv-social`) | root |
+| `/usr/local/lib/tvtv/` | every component's programs: the base's (`tv-dispatch`), a guest's named `tvtv-<component>*` | root |
 | `/usr/local/sbin/tvtv-*`, `tv-keys` | commands for a person with sudo | root |
 | `/etc/tvtv/` | settings: `authorized_keys`, `<component>.json`, secrets `<component>.token` (0600) | root |
 | `/etc/systemd/system/tvtv-<component>.*` | the units; drop-ins (`systemctl edit`) are the site's settings | root |
 | `/etc/sudoers.d/tvtv-<component>` | the deploying login's exact rules for that component | root |
 | `/etc/**.d/50-tvtv*` | drop-ins into the system's own settings (sshd, journald, apt) | root |
-| `/var/lib/tvtv-<component>/` | state, made by systemd (`StateDirectory=`) | the service |
+| `/var/lib/tvtv-<component>/` | state, made by systemd (`StateDirectory=`); with `DynamicUser=` a link to `/var/lib/private/tvtv-<component>/` | the service |
 | `/var/lib/tvtv/components/<component>` | what the component installed, for `tvtv-pi` | root |
-| `/run/tvtv-<component>.sock` | its control socket, made by `tvtv-<component>.socket` | root, group `zapper` |
+| `/run/tvtv-<component>.sock` | its control socket, made by `tvtv-<component>.socket` | mode 0660, group `zapper` |
 | `/run/tvtv-<component>/` | its runtime files (`RuntimeDirectory=`): anim.log, the snapshot | the service |
 | `/srv/tvtv/` | the USB stick: `doom/` (WADs), `clips/` | see below |
 | `~/tvtv-deploy/<what>/` | copies a deploy syncs to the deploying login before root installs them | that login |
@@ -76,6 +76,7 @@ file /usr/local/lib/tvtv/tvtv-social
 keep /etc/tvtv/social.json
 keep /etc/tvtv/social.token
 keep /var/lib/tvtv-social
+keep /var/lib/private/tvtv-social
 ```
 
 | Key | Meaning |
@@ -88,10 +89,15 @@ keep /var/lib/tvtv-social
 | `file` | installed by it, goes with `tvtv-pi remove` |
 | `keep` | settings, secrets, state: they stay on `remove` and go with `--purge` |
 
-`tvtv-pi` refuses a list that names a path outside the layout above, so a list cannot make it
-remove anything else. A new project on the Pi takes these steps:
+`tvtv-pi` refuses a list that names a path outside the layout above. A guest's list may name only
+what carries its own name: `/usr/local/lib/tvtv/tvtv-<name>*`, `/usr/local/sbin/tvtv-<name>*`,
+`/etc/tvtv/<name>.*`, `/etc/sudoers.d/tvtv-<name>`, `/var/lib/(private/)tvtv-<name>` and units
+`tvtv-<name>*`; only the base names the shared places (`/opt/tvtv`, `/srv/tvtv`, sshd, the keys).
+`remove` touches nothing that another list names too, nothing behind a directory that is a link,
+and reads the show's `VERSION` (zapper's) with zapper's rights. A new project on the Pi takes these
+steps:
 
-1. Pick a component name; install units `tvtv-<name>.*`, programs into `/usr/local/lib/tvtv/`,
+1. Pick a component name; install units `tvtv-<name>.*`, programs as `/usr/local/lib/tvtv/tvtv-<name>*`,
    settings into `/etc/tvtv/<name>.*`, state with `StateDirectory=tvtv-<name>`.
 2. Sync to `~/tvtv-deploy/<name>/` and install as root from there, never from a tree a service
    user owns.
@@ -160,6 +166,11 @@ On a Pi set up before this page, in this order:
 `sudo tvtv-pi remove social` stops a guest and takes its programs and units, and keeps its
 settings, token and state for a later install; `--purge` takes those too. The show is the base and
 is not removed that way. To clear the Pi of all of it, remove the guests first, then by hand:
-`systemctl disable --now tvtv-show.socket tvtv-show.service srv-tvtv.automount`, the files in the
-list `show`, the `# tvtv: the USB stick` lines in `/etc/fstab`, `/var/lib/tvtv`, and the user:
-`userdel zapper`.
+
+```
+sudo systemctl disable --now tvtv-show.socket tvtv-show.service
+sudo systemctl stop srv-tvtv.automount          # made from /etc/fstab, so stop, not disable
+# the files in /var/lib/tvtv/components/show, then the two "# tvtv: the USB stick" lines in
+# /etc/fstab, /var/lib/tvtv, and the user:
+sudo userdel zapper
+```

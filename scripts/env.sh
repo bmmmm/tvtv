@@ -11,9 +11,12 @@
 LEGACY_ENV=(TVTV_DEPLOY_HOST=BC101_HOST TVTV_SETUP_HOST=BC101_SETUP_HOST TVTV_HOME=BC101_DIR
   TVTV_USER=BC101_USER)
 load_env() {
-  local file line key val k pair new old want=("$@")
+  local file line key val k pair new old want=("$@") from_env=()
   for pair in "${LEGACY_ENV[@]}"; do
     for k in "$@"; do [[ $k != "${pair%%=*}" ]] || want+=("${pair#*=}"); done
+    # an old name set in the environment, the new one not: the environment still wins over .env
+    new=${pair%%=*} old=${pair#*=}
+    [[ -n ${!old+x} && -z ${!new+x} ]] && from_env+=("$new")
   done
   file=${TVTV_ENV:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env}
   if [[ -f $file ]]; then
@@ -33,7 +36,11 @@ load_env() {
   for pair in "${LEGACY_ENV[@]}"; do
     new=${pair%%=*} old=${pair#*=}
     for k in "$@"; do
-      if [[ $k == "$new" && -z ${!new+x} && -n ${!old+x} ]]; then
+      [[ $k == "$new" && -n ${!old+x} ]] || continue
+      if [[ " ${from_env[*]} " == *" $new "* ]]; then
+        export "$new=${!old}"
+        echo "note: $old is now $new (docs/pi.md, Names)" >&2
+      elif [[ -z ${!new+x} ]]; then
         export "$new=${!old}"
         echo "note: $old is now $new (docs/pi.md, Names): rename it in .env" >&2
       fi

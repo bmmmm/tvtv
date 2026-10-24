@@ -24,9 +24,9 @@ LEGACY=(/etc/systemd/system/bc101.service /etc/systemd/system/bc101.socket
 # Copies a deploy leaves in a login's home: the ones of docs/pi.md, then the ones from before.
 STAGE_GLOBS=('/home/*/tvtv-deploy' '/root/tvtv-deploy')
 OLD_STAGE_GLOBS=('/home/*/tvtv-setup' '/home/*/tvtv-social-check' '/home/*/tvtv-social-setup')
-# Where a component may put things (docs/pi.md, "Layout"); a list naming anything else is refused.
-PATH_RE='^/(usr/local/(lib|share)/tvtv/[^/]|usr/local/s?bin/(tvtv-|tv-)|etc/tvtv/[^/]|etc/sudoers\.d/tvtv-|etc/[a-z0-9._-]+(/[a-z0-9._-]+)?\.d/50-tvtv|var/lib/(private/)?tvtv-|opt/tvtv(/|$)|srv/tvtv(/|$))'
-UNIT_RE='^tvtv-[a-z0-9-]+@?\.(service|socket|timer|path)$'
+# Where the base (show) may put things (docs/pi.md, "Layout"); a list naming anything else is
+# refused. A guest names only its own: own_path. Units are tvtv-<component>*, drop-ins with them.
+PATH_RE='^/(usr/local/(lib|share)/tvtv/[^/]|usr/local/s?bin/(tvtv-|tv-)|etc/tvtv/[^/]|etc/sudoers\.d/tvtv-|etc/[a-z0-9._-]+(/[a-z0-9._-]+)?\.d/50-tvtv|etc/systemd/system/tvtv-[a-z0-9-]+@?\.(service|socket|timer|path)\.d$|var/lib/(private/)?tvtv-|opt/tvtv(/|$)|srv/tvtv(/|$))'
 NAME_RE='^[a-z][a-z0-9-]{0,23}$'
 
 die() { echo "tvtv-pi: $2" >&2; exit "$1"; }
@@ -34,6 +34,32 @@ need_root() { [[ $EUID -eq 0 || -n $R ]] || die 1 "$1 needs root (sudo tvtv-pi $
 p() { printf '%s%s' "$R" "$1"; } # a path of the Pi, under TVTV_ROOT
 
 # ---------- the component lists ----------
+# own_path <name> <path>: may that component's list name it? The base may name the shared places
+# (its tree /opt/tvtv, the stick, sshd, the keys); a guest only what carries its own name, so its
+# list cannot take the base's or another guest's files along on remove.
+own_path() {
+  local n=$1 x=$2 u='(service|socket|timer|path)'
+  [[ $x =~ $PATH_RE && $x != *..* && $x != *//* && $x =~ ^[A-Za-z0-9._/@-]+$ ]] || return 1
+  [[ $n != show ]] || return 0
+  [[ $x =~ ^/(usr/local/lib/tvtv/tvtv-$n([.-][^/]*)?(/.*)?|usr/local/s?bin/tvtv-$n([.-][^/]*)?|etc/tvtv/$n\.[^/]+|etc/sudoers\.d/tvtv-$n|var/lib/(private/)?tvtv-$n|etc/systemd/system/tvtv-$n(-[a-z0-9-]+)?@?\.$u\.d)$ ]]
+}
+own_unit() { [[ $2 =~ ^tvtv-$1(-[a-z0-9-]+)?@?\.(service|socket|timer|path)$ ]]; }
+
+# version_of <path>: the first line of a version file, at most 80 bytes, read with its owner's
+# rights: the show's VERSION is zapper's, and root must not follow a link of zapper's to a secret.
+version_of() {
+  local f out owner
+  f=$(p "$1")
+  [[ -f $f ]] || { echo "? ($1 missing)"; return 0; }
+  owner=$(stat -c %U -- "$f")
+  if [[ $EUID -eq 0 && $owner != root ]]; then
+    out=$(runuser -u "$owner" -- timeout 2 head -c 80 -- "$f" 2> /dev/null) || true
+  else
+    out=$(timeout 2 head -c 80 -- "$f" 2> /dev/null) || true
+  fi
+  out=${out%%$'\n'*}
+  printf '%s\n' "${out//[^[:print:]]/}"
+}
 # load <name>: fills M_* from $DB/<name>; M_ERR collects what is wrong with it.
 load() {
   local f key val
@@ -50,15 +76,14 @@ load() {
       version) M_VER=$val ;;
       removed) M_REMOVED=$val ;; # what remove leaves: the kept paths and when
       version-file)
-        if [[ $val =~ $PATH_RE && $val != *..* ]]; then
-          M_VER=$(head -n 1 "$(p "$val")" 2> /dev/null || echo "? ($val missing)")
+        if own_path "$1" "$val"; then M_VER=$(version_of "$val")
         else M_ERR+=("version-file outside the layout: $val"); fi
         ;;
-      unit) if [[ $val =~ $UNIT_RE ]]; then M_UNITS+=("$val"); else M_ERR+=("unit not named tvtv-*: $val"); fi ;;
+      unit) if own_unit "$1" "$val"; then M_UNITS+=("$val"); else M_ERR+=("unit not named tvtv-$1*: $val"); fi ;;
       file | keep)
-        if [[ $val =~ $PATH_RE && $val != *..* && $val != *//* && $val =~ ^[A-Za-z0-9._/@-]+$ ]]; then
+        if own_path "$1" "$val"; then
           if [[ $key == file ]]; then M_FILES+=("$val"); else M_KEEP+=("$val"); fi
-        else M_ERR+=("$key outside the layout of docs/pi.md: $val"); fi
+        else M_ERR+=("$key outside what $1 may name (docs/pi.md, Layout): $val"); fi
         ;;
       needs) M_NEEDS+=("$val") ;;
       *) M_ERR+=("unknown key: $key") ;;
@@ -158,8 +183,8 @@ cmd_du() {
   row "journal" "$(kb /var/log/journal)" "/var/log/journal (at most 32M, tvtv-pi clean)"
   row "swap file" "$(kb /var/swap)" "/var/swap (docs/pi.md, \"Room on the SD card\")"
   row "logs" "$(kb /var/log)" "/var/log"
-  for x in $(staging "${STAGE_GLOBS[@]}"); do row "staging" "$(kb "$x")" "$x"; done
-  for x in $(staging "${OLD_STAGE_GLOBS[@]}"); do row "left over" "$(kb "$x")" "$x (tvtv-pi clean)"; done
+  while IFS= read -r x; do row "staging" "$(kb "$x")" "$x"; done < <(staging "${STAGE_GLOBS[@]}")
+  while IFS= read -r x; do row "left over" "$(kb "$x")" "$x (tvtv-pi clean)"; done < <(staging "${OLD_STAGE_GLOBS[@]}")
   if command -v dpkg-query > /dev/null && [[ -z $R ]]; then
     echo "largest packages (dpkg-query; before removing any: docs/pi.md):"
     dpkg-query -W -f '${Installed-Size}\t${Package}\n' 2> /dev/null | sort -rn | head -n 12 |
@@ -167,11 +192,15 @@ cmd_du() {
   fi
 }
 
-staging() { # the Pi's paths matching the globs, without TVTV_ROOT
+staging() { # the Pi's paths matching the globs, one per line, without TVTV_ROOT
   local g m
+  shopt -s nullglob
   for g in "$@"; do
-    for m in $(p "$g"); do [[ -e $m ]] && printf '%s\n' "${m#"$R"}"; done
+    # shellcheck disable=SC2206 # the glob is meant to expand, under TVTV_ROOT only
+    local ms=("$R"$g)
+    for m in "${ms[@]}"; do [[ -e $m ]] && printf '%s\n' "${m#"$R"}"; done
   done
+  shopt -u nullglob
   return 0
 }
 
@@ -203,10 +232,10 @@ cmd_check() {
     is_claimed "$x" "${claimed[@]}" || problem "unclaimed: $x (no list in $DB names it)"
   done
   for x in "${LEGACY[@]}"; do [[ ! -e $(p "$x") ]] || problem "left over from before docs/pi.md: $x (run tvtv's setup again)"; done
-  if grep -qE '^/dev/sda1[[:space:]]+/mnt[[:space:]]' "$(p /etc/fstab)" 2> /dev/null; then
+  if grep -A1 '^# tvtv: the USB stick' "$(p /etc/fstab)" 2> /dev/null | grep -qE '^/dev/sda1[[:space:]]+/mnt[[:space:]]'; then
     problem "left over: the stick's old /mnt line in /etc/fstab (run tvtv's setup again)"
   fi
-  for x in $(staging "${OLD_STAGE_GLOBS[@]}"); do problem "left over: $x (tvtv-pi clean)"; done
+  while IFS= read -r x; do problem "left over: $x (tvtv-pi clean)"; done < <(staging "${OLD_STAGE_GLOBS[@]}")
   x=$(df -Pk "$(p /)" 2> /dev/null | awk 'NR == 2 { sub("%", "", $5); print $5 }')
   [[ -z $x || $x -lt 90 ]] || problem "the SD card is ${x}% full (tvtv-pi du)"
   if ((problems)); then echo "$problems problem(s)"; return 1; fi
@@ -230,19 +259,31 @@ cmd_clean() {
   [[ ! -d $(p /var/log/journal) ]] || run journalctl --vacuum-size=16M
   # Pure copies: a deploy makes them again. The social setup copy of before goes only once the
   # new one (tvtv-deploy/social) is there, as its install.sh is what `token` runs.
-  for x in $(staging "${OLD_STAGE_GLOBS[@]}" '/home/*/tvtv-deploy/show-setup'); do
+  while IFS= read -r x; do
     if [[ $x == */tvtv-social-setup && ! -d $(p "${x%/*}/tvtv-deploy/social") ]]; then
       echo "kept: $x (tvtv-social's setup copy; it goes after its next deploy/deploy.sh)"
       continue
     fi
     run rm -rf -- "$(p "$x")"
-  done
+  done < <(staging "${OLD_STAGE_GLOBS[@]}" '/home/*/tvtv-deploy/show-setup')
   ((dry)) && return 0
   after=$(df -Pk "$(p /)" | awk 'NR == 2 { print $4 }')
   echo "freed $(human $((after > before ? after - before : 0)))"
 }
 
 # ---------- remove ----------
+# safe_rm <path>: rm -rf, but only where no directory on the way is a link: rm follows those, and
+# a link put there by someone else would turn a path of the list into one outside it.
+safe_rm() {
+  local x dir
+  x=$(p "$1")
+  dir=$(dirname -- "$x")
+  if [[ $(realpath -m -- "$dir") != "$(realpath -m -s -- "$dir")" ]]; then
+    echo "not removed: $1 (a directory on its way is a link)" >&2
+    return 0
+  fi
+  rm -rf -- "$x"
+}
 cmd_remove() {
   local n=${1:-} purge=0 x other u keep
   [[ ${2:-} != --purge ]] || purge=1
@@ -250,9 +291,11 @@ cmd_remove() {
   [[ $n != show ]] || die 1 "the show is the base of every component; to clear the Pi: docs/pi.md, \"Removing\""
   [[ -f $(p "$DB/$n") ]] || die 1 "no component $n (tvtv-pi status)"
   need_root remove
+  local theirs=()
   for other in $(components); do
     [[ $other == "$n" ]] && continue
     load "$other"
+    theirs+=("${M_FILES[@]}" "${M_KEEP[@]}")
     [[ -z $M_REMOVED ]] || continue
     for x in "${M_NEEDS[@]}"; do [[ $x != "$n" ]] || die 1 "$other needs $n: remove $other first"; done
   done
@@ -260,12 +303,19 @@ cmd_remove() {
   [[ -z $M_REMOVED || $purge -eq 1 ]] || die 1 "$n was removed on $M_REMOVED; --purge removes what was kept"
   # A list that names anything outside the layout is not acted on at all.
   ((${#M_ERR[@]} == 0)) || die 1 "the list of $n is not sound, nothing removed: ${M_ERR[*]}"
+  # Nor one that shares a path with another list, either way round.
+  local c
+  for x in "${M_FILES[@]}" "${M_KEEP[@]}"; do
+    for c in "${theirs[@]}"; do
+      [[ $x == "$c" || $x == "$c"/* || $c == "$x"/* ]] && die 1 "$x is also in another component's list, nothing removed"
+    done
+  done
   for u in "${M_UNITS[@]}"; do systemctl disable --now --quiet "$u" 2> /dev/null || true; done
   for u in "${M_UNITS[@]}"; do rm -f -- "$(p "/etc/systemd/system/$u")"; done
-  for x in "${M_FILES[@]}"; do rm -rf -- "$(p "$x")"; done
+  for x in "${M_FILES[@]}"; do safe_rm "$x"; done
   if ((purge)); then
-    for x in "${M_KEEP[@]}"; do rm -rf -- "$(p "$x")"; done
-    for u in "${M_UNITS[@]}"; do rm -rf -- "$(p "/etc/systemd/system/$u.d")"; done
+    for x in "${M_KEEP[@]}"; do safe_rm "$x"; done
+    for u in "${M_UNITS[@]}"; do safe_rm "/etc/systemd/system/$u.d"; done
     rm -f -- "$(p "$DB/$n")"
   else
     # What stays is still named, so check knows whose it is and a later --purge finds it.

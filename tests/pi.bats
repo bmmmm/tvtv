@@ -94,7 +94,7 @@ LIST
   : > "$TVTV_ROOT/etc/systemd/system/bc101.service"
   : > "$TVTV_ROOT/etc/sudoers.d/tvtv-deploy"
   mkdir -p "$TVTV_ROOT/home/$PI_LOGIN/tvtv-social-check"
-  printf '/dev/sda1 /mnt vfat noauto 0 0\n' > "$TVTV_ROOT/etc/fstab"
+  printf '# tvtv: the USB stick, see tools/setup-remote.sh\n/dev/sda1 /mnt vfat noauto 0 0\n' > "$TVTV_ROOT/etc/fstab"
   run tools/tvtv-pi.sh check
   [ "$status" -eq 1 ]
   [[ $output == *"before docs/pi.md: /etc/systemd/system/bc101.service"* ]]
@@ -109,7 +109,7 @@ LIST
   rm "$TVTV_ROOT/var/lib/tvtv/components/show"
   run tools/tvtv-pi.sh check
   [ "$status" -eq 1 ]
-  [[ $output == *"social: file outside the layout of docs/pi.md: /etc/passwd"* ]]
+  [[ $output == *"social: file outside what social may name (docs/pi.md, Layout): /etc/passwd"* ]]
   [[ $output == *"social needs show, which is not installed"* ]]
   [[ $output == *"no list for the base"* ]]
 }
@@ -118,8 +118,8 @@ LIST
   printf 'file /usr/local/lib/tvtv/../../../etc/shadow\nunit getty@tty1.service\n' >> "$TVTV_ROOT/var/lib/tvtv/components/show"
   run tools/tvtv-pi.sh check
   [ "$status" -eq 1 ]
-  [[ $output == *"outside the layout"*"etc/shadow"* ]]
-  [[ $output == *"unit not named tvtv-*: getty@tty1.service"* ]]
+  [[ $output == *"outside what show may name"*"etc/shadow"* ]]
+  [[ $output == *"unit not named tvtv-show*: getty@tty1.service"* ]]
 }
 
 @test "remove: units off, files gone, settings and state kept" {
@@ -213,4 +213,74 @@ LIST
   run tools/tvtv-pi.sh
   [ "$status" -eq 2 ]
   [[ $output == *"tvtv-pi status"* ]]
+}
+
+@test "a guest names only its own: not the base's files, units or tree" {
+  social
+  printf 'file /etc/ssh/sshd_config.d/50-tvtv.conf\nkeep /etc/tvtv/authorized_keys\nkeep /opt/tvtv\nunit tvtv-show.socket\nfile /usr/local/lib/tvtv/tv-dispatch\n' \
+    >> "$TVTV_ROOT/var/lib/tvtv/components/social"
+  run tools/tvtv-pi.sh check
+  [ "$status" -eq 1 ]
+  [ "$(grep -c 'outside what social may name' <<< "$output")" -eq 4 ]
+  [[ $output == *"unit not named tvtv-social*: tvtv-show.socket"* ]]
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 1 ]
+  [ -e "$TVTV_ROOT/usr/local/lib/tvtv/tv-dispatch" ]
+}
+
+@test "remove: a path two lists name is not removed at all" {
+  social
+  printf 'name extra\nfile /usr/local/lib/tvtv/tvtv-extra\n' > "$TVTV_ROOT/var/lib/tvtv/components/extra"
+  printf 'keep /usr/local/lib/tvtv/tvtv-extra\n' >> "$TVTV_ROOT/var/lib/tvtv/components/show"
+  : > "$TVTV_ROOT/usr/local/lib/tvtv/tvtv-extra"
+  run tools/tvtv-pi.sh remove extra
+  [ "$status" -eq 1 ]
+  [[ $output == *"also in another component's list"* ]]
+  [ -e "$TVTV_ROOT/usr/local/lib/tvtv/tvtv-extra" ]
+}
+
+@test "remove: drop-ins stay as the unit's, a later --purge takes them and the private state" {
+  social
+  printf 'keep /var/lib/private/tvtv-social\n' >> "$TVTV_ROOT/var/lib/tvtv/components/social"
+  mkdir -p "$TVTV_ROOT/etc/systemd/system/tvtv-social.service.d" "$TVTV_ROOT/var/lib/private/tvtv-social"
+  : > "$TVTV_ROOT/var/lib/private/tvtv-social/state.json"
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 0 ]
+  run tools/tvtv-pi.sh check
+  echo "$output"
+  [ "$status" -eq 0 ]
+  run tools/tvtv-pi.sh remove social --purge
+  [ "$status" -eq 0 ]
+  [ ! -e "$TVTV_ROOT/etc/systemd/system/tvtv-social.service.d" ]
+  [ ! -e "$TVTV_ROOT/var/lib/private/tvtv-social" ]
+}
+
+@test "remove: nothing behind a directory that is a link" {
+  social
+  mkdir -p "$T/elsewhere"
+  : > "$T/elsewhere/social.json"
+  rm "$TVTV_ROOT/etc/tvtv/social.json"
+  mv "$TVTV_ROOT/etc/tvtv" "$T/tvtv-etc"
+  ln -s "$T/elsewhere" "$TVTV_ROOT/etc/tvtv"
+  run tools/tvtv-pi.sh remove social --purge
+  [[ $output == *"not removed: /etc/tvtv/social.json (a directory on its way is a link)"* ]]
+  [ -e "$T/elsewhere/social.json" ]
+}
+
+@test "clean, du, check: a home with a space in its name is one path" {
+  mkdir -p "$TVTV_ROOT/home/a b/tvtv-setup" "$TVTV_ROOT/home/a"
+  run tools/tvtv-pi.sh clean -n
+  [ "$status" -eq 0 ]
+  [[ $output == *"would: rm -rf -- $TVTV_ROOT/home/a b/tvtv-setup"* ]]
+  [ "$(grep -c 'would: rm' <<< "$output")" -eq 1 ]
+  run tools/tvtv-pi.sh check
+  [[ $output == *"left over: /home/a b/tvtv-setup"* ]]
+}
+
+@test "status: the version is one line of printable text, at most 80 bytes" {
+  { printf 'v9\033[2J'; head -c 200 /dev/zero | tr '\0' x; printf '\nsecond\n'; } > "$TVTV_ROOT/opt/tvtv/VERSION"
+  run tools/tvtv-pi.sh status
+  [[ ${lines[0]} == "show     v9[2J"x* ]]
+  [[ $output != *second* ]]
+  [ "${#lines[0]}" -lt 140 ]
 }

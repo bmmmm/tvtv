@@ -77,12 +77,16 @@ conf=/etc/ssh/sshd_config.d/50-tvtv.conf
 drop=$(mktemp)
 sed "s|^Match User zapper$|Match User $U|" system/sshd-tv.conf > "$drop"
 if ! cmp -s "$drop" "$conf"; then
+  # The one in place stays until sshd takes the new one: without any, zapper would be a plain
+  # login again after the next sshd restart.
+  [[ ! -f $conf ]] || cp -p "$conf" "$conf.prev"
   install -D -m 0644 "$drop" "$conf"
   if ! sshd -t; then
-    rm -f "$conf"
-    echo "sshd rejects the drop-in; removed it again" >&2
+    if [[ -f $conf.prev ]]; then mv -f "$conf.prev" "$conf"; else rm -f "$conf"; fi
+    echo "sshd rejects the new drop-in; the previous one is back" >&2
     exit 1
   fi
+  rm -f "$conf.prev"
   systemctl reload ssh 2> /dev/null || systemctl reload sshd
   echo "sshd: user $U restricted to the dispatcher"
 fi
@@ -108,10 +112,12 @@ if ((${#old[@]})); then
   systemctl daemon-reload
   echo "moved over: ${old[*]} are gone, the show is tvtv-show now"
 fi
-rm -f /etc/sudoers.d/tvtv-deploy
-if grep -q '^# tvtv: the USB stick' /etc/fstab && grep -qE '^/dev/sda1[[:space:]]+/mnt[[:space:]]' /etc/fstab; then
+# the stick's old line: only the one under the setup's own comment, never a line of a person's
+if grep -A1 '^# tvtv: the USB stick' /etc/fstab | grep -qE '^/dev/sda1[[:space:]]+/mnt[[:space:]]'; then
   systemctl stop mnt.automount 2> /dev/null || true
-  umount /mnt 2> /dev/null || true
+  if mountpoint -q /mnt && ! umount /mnt; then
+    echo "warning: /mnt is busy; the old stick comes off it at the next reboot" >&2
+  fi
   echo "moved over: the stick no longer mounts on /mnt, but on $SRV (see below)"
 fi
 
@@ -141,9 +147,10 @@ $deployer ALL=(root) NOPASSWD: TVTV_ROOT
 RULES
   if visudo -c -q -f "$rules"; then
     install -m 0440 "$rules" "$SUDOERS"
+    rm -f /etc/sudoers.d/tvtv-deploy # the rules from before docs/pi.md, now that these are in place
     echo "sudo: $deployer may deploy and manage keys without a password"
   else
-    echo "sudoers rules did not validate, not installed" >&2
+    echo "sudoers rules did not validate, not installed (the old ones, if any, stay)" >&2
   fi
   rm -f "$rules"
 else
@@ -157,7 +164,8 @@ install -d -m 0755 "$SRV"
 line="LABEL=TVTV $SRV ext4 nosuid,nodev,noexec,nofail,noauto"
 line+=",x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.device-timeout=2s 0 2"
 if ! grep -qxF "$line" /etc/fstab; then
-  sed -i '/^# tvtv: the USB stick/d; \|^/dev/sda1[[:space:]]\+/mnt[[:space:]]|d; \|^LABEL=TVTV[[:space:]]|d' /etc/fstab
+  # the setup's own lines only: its comment and the line under it (the old /mnt one or an older /srv)
+  sed -i '/^# tvtv: the USB stick/{N;d}' /etc/fstab
   if [[ -s /etc/fstab && -n $(tail -c 1 /etc/fstab) ]]; then echo >> /etc/fstab; fi
   printf '# tvtv: the USB stick, see docs/pi.md and tools/setup-remote.sh\n%s\n' "$line" >> /etc/fstab
   systemctl daemon-reload
@@ -209,7 +217,7 @@ file $LIB/tv-dispatch
 file /usr/local/sbin/tv-keys
 file /usr/local/sbin/tvtv-pi
 file /etc/ssh/sshd_config.d/50-tvtv.conf
-file $SUDOERS
+$([[ -f $SUDOERS ]] && echo "file $SUDOERS")
 file $jconf
 file $aconf
 keep /etc/tvtv/authorized_keys

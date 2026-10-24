@@ -16,7 +16,7 @@ shift
 case \$* in
   *'"\$USER"'*) printf deploy ;;
   *'"\$HOME"'*) printf /home/$PI_LOGIN ;;
-  'sudo -n -l '*) exit \${SUDO_RC:-0} ;;
+  'test -e /etc/sudoers.d/tvtv-show') exit \${SUDO_RC:-0} ;;
   'sudo tee '*) f=\${*#sudo tee }; f=\${f%% *}; cat > "$T/units/\${f##*/}" ;;
   'bash -s -- '*) cat > "$T/install.piped"; printf '%s\n' "\$4" > "$T/install.arg" ;;
 esac
@@ -36,7 +36,7 @@ SH
 @test "deploy: a Pi whose sudo rules predate tvtv-show is told to run --setup, nothing changes" {
   SUDO_RC=1 run scripts/deploy.sh
   [ "$status" -eq 1 ]
-  [[ $output == *"predates it, run scripts/deploy.sh --setup"* ]]
+  [[ $output == *"no sudo rules for tvtv-show.socket: the Pi's setup predates it, run scripts/deploy.sh --setup"* ]]
   [ ! -e "$T/rsync.calls" ]
   [ -z "$(ls "$T/units")" ]
 }

@@ -77,3 +77,12 @@ setup() {
   load_env BC101_DEM0_BUDGET
   [ "$BC101_DEM0_BUDGET" = 5 ]
 }
+
+@test "an old name in the environment wins over the new one in the file, as any variable would" {
+  printf 'TVTV_DEPLOY_HOST=pi1\n' > "$TVTV_ENV"
+  export BC101_HOST=pi2
+  source scripts/env.sh
+  load_env TVTV_DEPLOY_HOST 2> "$BATS_TEST_TMPDIR/err"
+  [ "$TVTV_DEPLOY_HOST" = pi2 ]
+  grep -qxF 'note: BC101_HOST is now TVTV_DEPLOY_HOST (docs/pi.md, Names)' "$BATS_TEST_TMPDIR/err"
+}
