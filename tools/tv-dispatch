@@ -26,13 +26,13 @@ set -euo pipefail
 
 TVTV_HOME=${TVTV_HOME:-/opt/tvtv}
 TVTV_KEYS=${TVTV_KEYS:-/etc/tvtv/authorized_keys}
-TVTV_SOCK=${TVTV_SOCK:-/run/bc101/ctl}
-TVTV_UNIT=${TVTV_UNIT:-bc101} # the show's systemd unit; tests name one that does not exist
+TVTV_SOCK=${TVTV_SOCK:-/run/tvtv-show.sock}
+TVTV_UNIT=${TVTV_UNIT:-tvtv-show} # the show's systemd unit; tests name one that does not exist
 TVTV_SOCIAL_SOCK=${TVTV_SOCIAL_SOCK:-/run/tvtv-social.sock}
 BIN=$TVTV_HOME/bc101  # the show: only for -l (the channel table)
 CTL=$TVTV_HOME/tvctl  # the client, built without scene code: an upload cannot break it
 DOOM=$TVTV_HOME/fbdoom
-DOOM_WADS=${TVTV_WADS:-/mnt /usr/share/games/doom} # where WADs are found: the USB stick first
+DOOM_WADS=${TVTV_WADS:-/srv/tvtv/doom /usr/share/games/doom} # where WADs are found: the USB stick first
 MAX_UPLOAD=262144 # bytes of C per visual
 MAX_VISUALS=32    # channels 30..61
 BUILD_TIMEOUT=900 # a full build takes over a minute on the Pi 1
@@ -87,7 +87,7 @@ ctl() { "$CTL" -s "$TVTV_SOCK" "$@"; }
 unit() { systemctl show -p "$1" --value "$TVTV_UNIT" 2>/dev/null || true; } # empty without systemd
 
 # Switched off: the unit exists and neither runs nor is about to. Then every ctl question would
-# switch the show on (bc101.socket starts it), so upload and rm must not ask.
+# switch the show on (tvtv-show.socket starts it), so upload and rm must not ask.
 show_off() {
   local state
   [[ $(unit LoadState) == loaded ]] || return 1
@@ -176,7 +176,7 @@ go_live() {
     return 0
   fi
   # Up to 12 s for the new binary to answer. It is dead when systemd counts a restart (under
-  # bc101.socket a dead show still accepts connections, so silence takes 3 s per question), or,
+  # tvtv-show.socket a dead show still accepts connections, so silence takes 3 s per question), or,
   # without the unit, when it refuses for 3 s; then the old one goes back right away.
   restarts=$(unit NRestarts)
   dead=0

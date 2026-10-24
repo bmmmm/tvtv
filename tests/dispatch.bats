@@ -6,7 +6,7 @@ setup_file() {
   cd "$BATS_TEST_DIRNAME/.." || exit 1
   T=$BATS_FILE_TMPDIR
   export TVTV_HOME="$T/home" TVTV_SOCK="$T/ctl" TVTV_KEYS="$T/authorized_keys"
-  export TVTV_UNIT=tvtv-test-no-such-unit # the Pi's bc101 unit must not decide anything here
+  export TVTV_UNIT=tvtv-test-no-such-unit # the Pi's tvtv-show unit must not decide anything here
   export TVTV_SOCIAL_SOCK="$T/social.sock"
   mkdir -p "$TVTV_HOME"
   cp -r src slides tools Makefile system "$TVTV_HOME/"

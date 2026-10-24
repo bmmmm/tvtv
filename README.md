@@ -65,30 +65,33 @@ no network, read-only file system, only the framebuffer and tty1.
 
 ```sh
 scripts/deploy.sh -n   # dry run: file changes and the unit diff
-scripts/deploy.sh      # rsync, make (incremental), restart bc101.service
+scripts/deploy.sh      # rsync, make (incremental), restart tvtv-show.service
 ```
 
-`BC101_HOST` names the SSH host of the deploying login; put it in `.env` (copy `.env.example`,
+`TVTV_DEPLOY_HOST` names the SSH host of the deploying login; put it in `.env` (copy `.env.example`,
 git ignores `.env`) or the environment. Files land in `/opt/tvtv` there. Deploy
 fails if the show does not stay up for 3 s after the restart. A full build takes over a minute
-on the Pi 1; touching one scene rebuilds in about 6 s.
+on the Pi 1; touching one scene rebuilds in about 6 s. Where everything goes on the Pi, for tvtv
+and the other projects there (dem02socialTV), and what changed from `bc101.service`:
+[docs/pi.md](docs/pi.md).
 
 **Day to day.**
 
 ```sh
-sudo systemctl stop|start|restart bc101                  # the looping show (stop: the remote wakes it)
-sudo systemctl stop|start bc101.socket                   # unplug | plug in: off until started again
-~/tvtv/bc101 -l                                          # list scenes
-sudo openvt -c 1 -s -f -- ~/tvtv/bc101 juggle fire       # play chosen scenes
-sudo openvt -c 1 -s -f -- ~/tvtv/bc101 -t 120 explain    # stop after 120 s
-cat /run/bc101/anim.log                                  # average fps and worst frame per scene (/tmp when run by hand)
+sudo systemctl stop|start|restart tvtv-show               # the looping show (stop: the remote wakes it)
+sudo systemctl stop|start tvtv-show.socket                # unplug | plug in: off until started again
+/opt/tvtv/bc101 -l                                        # list scenes
+sudo openvt -c 1 -s -f -- /opt/tvtv/bc101 juggle fire     # play chosen scenes
+sudo openvt -c 1 -s -f -- /opt/tvtv/bc101 -t 120 explain  # stop after 120 s
+cat /run/tvtv-show/anim.log                               # average fps and worst frame per scene (/tmp when run by hand)
+sudo tvtv-pi status | du | check                          # every project on the Pi: versions, room, layout (docs/pi.md)
 ```
 
-Stop `bc101.socket` before starting scenes by hand, otherwise both draw on tty1: after a stop
-of `bc101` alone, any remote command switches the show back on, and an open zapper asks twice
+Stop `tvtv-show.socket` before starting scenes by hand, otherwise both draw on tty1: after a stop
+of `tvtv-show` alone, any remote command switches the show back on, and an open zapper asks twice
 a second. `explain`
 (making-of), `stack` (tech deep dive) and `testcard` are not part of the default loop. Slow
-boot? `sudo ~/tvtv/tools/boot-report.sh` writes timings and network logs to a fresh
+boot? `sudo /opt/tvtv/tools/boot-report.sh` writes timings and network logs to a fresh
 `/tmp/boot-report.XXXXXX` and prints its name (password-like values redacted).
 
 ## Remote control
@@ -196,9 +199,10 @@ src/scenes/*.c        one file per scene (pixel, dem0, text: the social channels
 slides/*.txt          German text of the slide decks (data, not code)
 system/               systemd unit template (sandboxed) and the sshd drop-in for user zapper
 tools/install.sh      on the Pi: make, restart, check it stays up
-tools/setup-remote.sh on the Pi, once: user zapper, /opt/tvtv, dispatcher, keys file, sshd
+tools/setup-remote.sh on the Pi, once: user zapper, /opt/tvtv, dispatcher, keys file, sshd, the layout (docs/pi.md)
 tools/tv-dispatch     what `ssh zapper` runs: commands, the zapper, uploads with rollback
 tools/tv-keys.sh      on the Pi: keys and roles for the remote
+tools/tvtv-pi.sh      on the Pi: status, room, layout check, clean-up of every project there (docs/pi.md)
 tools/social-pi-check.sh  on the Pi: the social channels' VM and reader on the device, a bench, the budget
 tools/gen-visuals.sh  generates build/visuals.c, the table of uploaded visuals
 tools/boot-report.sh  on the Pi: boot timing and network logs

@@ -170,10 +170,10 @@ bench_table() {
         printf "  %-7s %4d  %2dx%-2d %5d  %8d  %6.2f ms  %6.2f ms  %8d%s\n", name[i], cost[i], cell[i], cell[i],
           n[i], units[i], avg[i], worst[i], rate[i], (avg[i] > 14 ? "  over 14 ms: coarser cells on air" : "")
       if (least < 0.8) {
-        printf "  the bench had %d%% of the core: something else ran (bc101?), its times are too long and\n",
+        printf "  the bench had %d%% of the core: something else ran (the show?), its times are too long and\n",
           100 * least
         print "  the budget below is too low; for the numbers unplug the show (sudo systemctl stop"
-        print "  bc101.socket), run this again, then switch it back on (sudo systemctl start bc101)"
+        print "  tvtv-show.socket), run this again, then switch it back on (sudo systemctl start tvtv-show)"
       } else {
         printf "  the bench had the core to itself (%d%%)\n", 100 * least
       }

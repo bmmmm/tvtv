@@ -99,7 +99,7 @@ Das ist die ganze Schnittstelle. `init()` läuft einmal beim Start der Szene und
 
 Der Sequencer in `main.c` ist eine Schleife mit vier Schritten: Die Szene malt ins Canvas, die Blende skaliert das Bild am Anfang und Ende einer Szene, der Blit kopiert das Canvas in den Framebuffer, und ein Schlaf wartet auf den nächsten 20-ms-Takt. Der Takt ist ein absoluter Zeitpunkt, keine relative Pause: Das Programm berechnet, wann das nächste Bild fällig ist, und schläft mit `clock_nanosleep` und `TIMER_ABSTIME` bis dahin, ein zu früh fertiges Bild verschiebt den Takt also nicht. Auf ein zu spätes Bild folgt das nächste sofort, und erst wenn das Programm mehr als 100 ms in Rückstand gerät, gibt es auf und setzt den Takt neu auf jetzt. Der Zeitschritt, den eine Szene bekommt, ist auf 50 ms gedeckelt, ein Schluckauf lässt also nie ein Teilchen quer über den Bildschirm springen.
 
-Jede Szene bekommt am Ende eine Zeile in `/run/bc101/anim.log`: ihre mittlere Bildrate und ihr langsamstes Bild in Millisekunden. Diese zwei Zahlen sind die ganze Performance-Geschichte der Show, und Kapitel 5 handelt von ihnen.
+Jede Szene bekommt am Ende eine Zeile in `/run/tvtv-show/anim.log`: ihre mittlere Bildrate und ihr langsamstes Bild in Millisekunden. Diese zwei Zahlen sind die ganze Performance-Geschichte der Show, und Kapitel 5 handelt von ihnen.
 
 ### Ein Pixel wird zwei
 
@@ -176,7 +176,7 @@ Das erste ist das Protokoll, das der Sequencer auf dem Pi schreibt: mittlere Bil
 Das zweite Instrument ist `build/preview ... bench`, das eine gegebene Zahl von Bildern offline rendert und Mittelwert und Maximum meldet. Auf einem Arbeitsrechner sagen seine Zahlen nichts über den Pi, sie sind 20- bis 50-mal kleiner, aber als Verhältnis zwischen zwei Fassungen einer Szene sagen sie alles: Verdoppelt eine Änderung die Bildzeit auf dem Mac, verdoppelt sie sie auch auf dem Pi.
 
 <!-- Hier kommt eine Tabelle mit fps und langsamstem Bild jeder Szene aus einem vollen
-     Durchlauf der Show auf dem Pi hin (cat /run/bc101/anim.log nach einer Schleife). -->
+     Durchlauf der Show auf dem Pi hin (cat /run/tvtv-show/anim.log nach einer Schleife). -->
 
 Zwei weitere Zahlen beschreiben das Programm. Das Ganze sind rund 2500 Zeilen C, die zu einer 95 KB großen ausführbaren Datei werden, gegen nichts gelinkt als die C-Bibliothek, die Mathematikbibliothek und die Speicherroutinen des Pi. Ein voller Build dauert auf dem Pi 1 etwas mehr als eine Minute; eine geänderte Szene ist in etwa sechs Sekunden neu gebaut, weil `make` nur übersetzt, was sich geändert hat.
 

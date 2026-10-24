@@ -1,0 +1,286 @@
+#!/usr/bin/env bats
+# tools/tvtv-pi.sh against a made-up Pi under TVTV_ROOT, with stand-ins for systemctl, apt-get and
+# journalctl that only write down what they were asked. Runs anywhere: bats tests/pi.bats
+setup() {
+  cd "$BATS_TEST_DIRNAME/.." || exit 1
+  T=$BATS_TEST_TMPDIR
+  PI_LOGIN=deploy # the deploying login on the made-up Pi
+  export TVTV_ROOT=$T/pi
+  mkdir -p "$T/bin" "$TVTV_ROOT"/{var/lib/tvtv/components,usr/local/lib/tvtv,usr/local/sbin,etc/tvtv,etc/systemd/system,etc/sudoers.d,opt/tvtv/build,srv/tvtv,home/$PI_LOGIN}
+  for t in systemctl apt-get journalctl findmnt; do
+    printf '#!/bin/sh\necho "%s $*" >> "%s/calls"\n' "$t" "$T" > "$T/bin/$t"
+    chmod +x "$T/bin/$t"
+  done
+  # findmnt: the stick is never mounted here
+  printf '#!/bin/sh\nexit 1\n' > "$T/bin/findmnt"
+  export PATH="$T/bin:$PATH"
+  # the base, as tools/setup-remote.sh writes it
+  echo v1.2-3-gabc > "$TVTV_ROOT/opt/tvtv/VERSION"
+  for f in usr/local/lib/tvtv/tv-dispatch usr/local/sbin/tv-keys usr/local/sbin/tvtv-pi \
+    etc/tvtv/authorized_keys etc/systemd/system/tvtv-show.socket etc/systemd/system/tvtv-show.service; do
+    : > "$TVTV_ROOT/$f"
+  done
+  cat > "$TVTV_ROOT/var/lib/tvtv/components/show" << 'LIST'
+# the base
+name show
+repo https://github.com/bmmmm/tvtv
+version-file /opt/tvtv/VERSION
+unit tvtv-show.socket
+unit tvtv-show.service
+file /usr/local/lib/tvtv/tv-dispatch
+file /usr/local/sbin/tv-keys
+file /usr/local/sbin/tvtv-pi
+keep /etc/tvtv/authorized_keys
+keep /opt/tvtv
+keep /srv/tvtv
+LIST
+}
+
+social() { # a guest component, as dem02socialTV's install.sh writes it
+  mkdir -p "$TVTV_ROOT/var/lib/tvtv-social"
+  for f in usr/local/lib/tvtv/tvtv-social etc/tvtv/social.json etc/tvtv/social.token \
+    etc/systemd/system/tvtv-social.socket etc/systemd/system/tvtv-social.service; do
+    : > "$TVTV_ROOT/$f"
+  done
+  cat > "$TVTV_ROOT/var/lib/tvtv/components/social" << 'LIST'
+name social
+repo https://github.com/bmmmm/dem02socialTV
+version 0123456789ab
+needs show
+unit tvtv-social.socket
+unit tvtv-social.service
+file /usr/local/lib/tvtv/tvtv-social
+keep /etc/tvtv/social.json
+keep /etc/tvtv/social.token
+keep /var/lib/tvtv-social
+LIST
+}
+
+@test "status: the base first, its version from the file, units and files" {
+  social
+  run tools/tvtv-pi.sh status
+  [ "$status" -eq 0 ]
+  [[ ${lines[0]} == "show "*"v1.2-3-gabc"*"github.com/bmmmm/tvtv" ]]
+  [[ $output == *"tvtv-show.socket"* ]]
+  [[ $output == *"files 3/3"* ]]
+  [[ $output == *"social "*"0123456789ab"* ]]
+}
+
+@test "status: a missing file is named" {
+  rm "$TVTV_ROOT/usr/local/sbin/tv-keys"
+  run tools/tvtv-pi.sh status
+  [[ $output == *"files 2/3, missing: /usr/local/sbin/tv-keys"* ]]
+}
+
+@test "check: a sound layout passes" {
+  social
+  run tools/tvtv-pi.sh check
+  echo "$output"
+  [ "$status" -eq 0 ]
+  [[ $output == "ok: 2 component(s)"* ]]
+}
+
+@test "check: unclaimed files, a unit drop-in is the unit's own" {
+  : > "$TVTV_ROOT/usr/local/lib/tvtv/tvtv-social" # installed before it wrote a list
+  mkdir -p "$TVTV_ROOT/etc/systemd/system/tvtv-show.service.d"
+  : > "$TVTV_ROOT/etc/systemd/system/tvtv-show.service.d/override.conf"
+  run tools/tvtv-pi.sh check
+  [ "$status" -eq 1 ]
+  [[ $output == *"unclaimed: /usr/local/lib/tvtv/tvtv-social"* ]]
+  [[ $output != *"tvtv-show.service.d"* ]]
+}
+
+@test "check: what was there before docs/pi.md is named" {
+  : > "$TVTV_ROOT/etc/systemd/system/bc101.service"
+  : > "$TVTV_ROOT/etc/sudoers.d/tvtv-deploy"
+  mkdir -p "$TVTV_ROOT/home/$PI_LOGIN/tvtv-social-check"
+  printf '# tvtv: the USB stick, see tools/setup-remote.sh\n/dev/sda1 /mnt vfat noauto 0 0\n' > "$TVTV_ROOT/etc/fstab"
+  run tools/tvtv-pi.sh check
+  [ "$status" -eq 1 ]
+  [[ $output == *"before docs/pi.md: /etc/systemd/system/bc101.service"* ]]
+  [[ $output == *"/etc/sudoers.d/tvtv-deploy"* ]]
+  [[ $output == *"left over: /home/$PI_LOGIN/tvtv-social-check"* ]]
+  [[ $output == *"old /mnt line"* ]]
+}
+
+@test "check: a list naming something outside the layout, a missing dependency" {
+  social
+  printf 'file /etc/passwd\n' >> "$TVTV_ROOT/var/lib/tvtv/components/social"
+  rm "$TVTV_ROOT/var/lib/tvtv/components/show"
+  run tools/tvtv-pi.sh check
+  [ "$status" -eq 1 ]
+  [[ $output == *"social: file outside what social may name (docs/pi.md, Layout): /etc/passwd"* ]]
+  [[ $output == *"social needs show, which is not installed"* ]]
+  [[ $output == *"no list for the base"* ]]
+}
+
+@test "check: paths that climb out or units of another name are refused" {
+  printf 'file /usr/local/lib/tvtv/../../../etc/shadow\nunit getty@tty1.service\n' >> "$TVTV_ROOT/var/lib/tvtv/components/show"
+  run tools/tvtv-pi.sh check
+  [ "$status" -eq 1 ]
+  [[ $output == *"outside what show may name"*"etc/shadow"* ]]
+  [[ $output == *"unit not named tvtv-show*: getty@tty1.service"* ]]
+}
+
+@test "remove: units off, files gone, settings and state kept" {
+  social
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 0 ]
+  [ ! -e "$TVTV_ROOT/usr/local/lib/tvtv/tvtv-social" ]
+  [ ! -e "$TVTV_ROOT/etc/systemd/system/tvtv-social.service" ]
+  grep -qx "removed $(date +%F)" "$TVTV_ROOT/var/lib/tvtv/components/social"
+  [ -e "$TVTV_ROOT/etc/tvtv/social.token" ]
+  [ -d "$TVTV_ROOT/var/lib/tvtv-social" ]
+  grep -qx 'systemctl disable --now --quiet tvtv-social.socket' "$T/calls"
+  grep -qx 'systemctl daemon-reload' "$T/calls"
+  # what stays is still named: check is content, status says so, --purge finds it later
+  run tools/tvtv-pi.sh check
+  [ "$status" -eq 0 ]
+  [[ $output == "ok: 1 component(s)"* ]]
+  run tools/tvtv-pi.sh status
+  [[ $output == *"social   removed "*"kept: /etc/tvtv/social.json"* ]]
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 1 ]
+  run tools/tvtv-pi.sh remove social --purge
+  [ "$status" -eq 0 ]
+  [ ! -e "$TVTV_ROOT/etc/tvtv/social.token" ]
+  [ ! -e "$TVTV_ROOT/var/lib/tvtv/components/social" ]
+}
+
+@test "remove --purge: settings, state and drop-ins go too" {
+  social
+  mkdir -p "$TVTV_ROOT/etc/systemd/system/tvtv-social.service.d"
+  run tools/tvtv-pi.sh remove social --purge
+  [ "$status" -eq 0 ]
+  [ ! -e "$TVTV_ROOT/etc/tvtv/social.token" ]
+  [ ! -e "$TVTV_ROOT/var/lib/tvtv-social" ]
+  [ ! -e "$TVTV_ROOT/etc/systemd/system/tvtv-social.service.d" ]
+  [ -e "$TVTV_ROOT/etc/tvtv/authorized_keys" ]
+}
+
+@test "remove: not the base, not what another needs, not an unsound list" {
+  social
+  run tools/tvtv-pi.sh remove show
+  [ "$status" -eq 1 ]
+  [[ $output == *"the base"* ]]
+  printf 'name extra\nneeds social\n' > "$TVTV_ROOT/var/lib/tvtv/components/extra"
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 1 ]
+  [[ $output == *"extra needs social"* ]]
+  rm "$TVTV_ROOT/var/lib/tvtv/components/extra"
+  printf 'file /etc/passwd\n' >> "$TVTV_ROOT/var/lib/tvtv/components/social"
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 1 ]
+  [[ $output == *"nothing removed"* ]]
+  [ -e "$TVTV_ROOT/usr/local/lib/tvtv/tvtv-social" ]
+  [ ! -e "$T/calls" ] || ! grep -q disable "$T/calls"
+}
+
+@test "clean: apt's cache, old copies; the old social copy stays until its new one exists" {
+  mkdir -p "$TVTV_ROOT/var/cache/apt/archives" "$TVTV_ROOT/var/log/journal" \
+    "$TVTV_ROOT/home/$PI_LOGIN/tvtv-setup" "$TVTV_ROOT/home/$PI_LOGIN/tvtv-social-setup"
+  : > "$TVTV_ROOT/var/cache/apt/archives/gcc.deb"
+  run tools/tvtv-pi.sh clean -n
+  [ "$status" -eq 0 ]
+  [[ $output == *"would: apt-get clean"* ]]
+  [[ $output == *"kept: /home/$PI_LOGIN/tvtv-social-setup"* ]]
+  [ -d "$TVTV_ROOT/home/$PI_LOGIN/tvtv-setup" ]
+  run tools/tvtv-pi.sh clean
+  [ "$status" -eq 0 ]
+  grep -qx 'apt-get clean' "$T/calls"
+  grep -qx 'journalctl --vacuum-size=16M' "$T/calls"
+  [ ! -e "$TVTV_ROOT/home/$PI_LOGIN/tvtv-setup" ]
+  [ -d "$TVTV_ROOT/home/$PI_LOGIN/tvtv-social-setup" ]
+  mkdir -p "$TVTV_ROOT/home/$PI_LOGIN/tvtv-deploy/social"
+  run tools/tvtv-pi.sh clean
+  [ ! -e "$TVTV_ROOT/home/$PI_LOGIN/tvtv-social-setup" ]
+}
+
+@test "du: the card, each component, the show's parts, staging" {
+  social
+  head -c 300000 /dev/zero > "$TVTV_ROOT/opt/tvtv/build/x.o"
+  mkdir -p "$TVTV_ROOT/home/$PI_LOGIN/tvtv-deploy/social"
+  run tools/tvtv-pi.sh du
+  [ "$status" -eq 0 ]
+  [[ ${lines[0]} == "SD card /"*"used of"*"free"* ]]
+  [[ $output == *"stick          not mounted"* ]]
+  [[ $output == *"  show "* ]]
+  [[ $output == *"build/"*"/opt/tvtv/build"* ]]
+  [[ $output == *"staging"*"/home/$PI_LOGIN/tvtv-deploy"* ]]
+}
+
+@test "no command: the usage" {
+  run tools/tvtv-pi.sh
+  [ "$status" -eq 2 ]
+  [[ $output == *"tvtv-pi status"* ]]
+}
+
+@test "a guest names only its own: not the base's files, units or tree" {
+  social
+  printf 'file /etc/ssh/sshd_config.d/50-tvtv.conf\nkeep /etc/tvtv/authorized_keys\nkeep /opt/tvtv\nunit tvtv-show.socket\nfile /usr/local/lib/tvtv/tv-dispatch\n' \
+    >> "$TVTV_ROOT/var/lib/tvtv/components/social"
+  run tools/tvtv-pi.sh check
+  [ "$status" -eq 1 ]
+  [ "$(grep -c 'outside what social may name' <<< "$output")" -eq 4 ]
+  [[ $output == *"unit not named tvtv-social*: tvtv-show.socket"* ]]
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 1 ]
+  [ -e "$TVTV_ROOT/usr/local/lib/tvtv/tv-dispatch" ]
+}
+
+@test "remove: a path two lists name is not removed at all" {
+  social
+  printf 'name extra\nfile /usr/local/lib/tvtv/tvtv-extra\n' > "$TVTV_ROOT/var/lib/tvtv/components/extra"
+  printf 'keep /usr/local/lib/tvtv/tvtv-extra\n' >> "$TVTV_ROOT/var/lib/tvtv/components/show"
+  : > "$TVTV_ROOT/usr/local/lib/tvtv/tvtv-extra"
+  run tools/tvtv-pi.sh remove extra
+  [ "$status" -eq 1 ]
+  [[ $output == *"also in another component's list"* ]]
+  [ -e "$TVTV_ROOT/usr/local/lib/tvtv/tvtv-extra" ]
+}
+
+@test "remove: drop-ins stay as the unit's, a later --purge takes them and the private state" {
+  social
+  printf 'keep /var/lib/private/tvtv-social\n' >> "$TVTV_ROOT/var/lib/tvtv/components/social"
+  mkdir -p "$TVTV_ROOT/etc/systemd/system/tvtv-social.service.d" "$TVTV_ROOT/var/lib/private/tvtv-social"
+  : > "$TVTV_ROOT/var/lib/private/tvtv-social/state.json"
+  run tools/tvtv-pi.sh remove social
+  [ "$status" -eq 0 ]
+  run tools/tvtv-pi.sh check
+  echo "$output"
+  [ "$status" -eq 0 ]
+  run tools/tvtv-pi.sh remove social --purge
+  [ "$status" -eq 0 ]
+  [ ! -e "$TVTV_ROOT/etc/systemd/system/tvtv-social.service.d" ]
+  [ ! -e "$TVTV_ROOT/var/lib/private/tvtv-social" ]
+}
+
+@test "remove: nothing behind a directory that is a link" {
+  social
+  mkdir -p "$T/elsewhere"
+  : > "$T/elsewhere/social.json"
+  rm "$TVTV_ROOT/etc/tvtv/social.json"
+  mv "$TVTV_ROOT/etc/tvtv" "$T/tvtv-etc"
+  ln -s "$T/elsewhere" "$TVTV_ROOT/etc/tvtv"
+  run tools/tvtv-pi.sh remove social --purge
+  [[ $output == *"not removed: /etc/tvtv/social.json (a directory on its way is a link)"* ]]
+  [ -e "$T/elsewhere/social.json" ]
+}
+
+@test "clean, du, check: a home with a space in its name is one path" {
+  mkdir -p "$TVTV_ROOT/home/a b/tvtv-setup" "$TVTV_ROOT/home/a"
+  run tools/tvtv-pi.sh clean -n
+  [ "$status" -eq 0 ]
+  [[ $output == *"would: rm -rf -- $TVTV_ROOT/home/a b/tvtv-setup"* ]]
+  [ "$(grep -c 'would: rm' <<< "$output")" -eq 1 ]
+  run tools/tvtv-pi.sh check
+  [[ $output == *"left over: /home/a b/tvtv-setup"* ]]
+}
+
+@test "status: the version is one line of printable text, at most 80 bytes" {
+  { printf 'v9\033[2J'; head -c 200 /dev/zero | tr '\0' x; printf '\nsecond\n'; } > "$TVTV_ROOT/opt/tvtv/VERSION"
+  run tools/tvtv-pi.sh status
+  [[ ${lines[0]} == "show     v9[2J"x* ]]
+  [[ $output != *second* ]]
+  [ "${#lines[0]}" -lt 140 ]
+}
