@@ -197,7 +197,6 @@ tools/flipbook.*      whole scenes as a self-contained HTML flipbook, spec per l
 scripts/deploy.sh     on the workstation: rsync to the Pi, then tools/install.sh; --setup once
 scripts/tv            the remote from your own terminal (ssh wrapper)
 tests/*.bats          sequencer, socket, dispatcher: headless, on any Linux box
-scripts/setup-claude-identity.sh  git identity helper for the maintainers' setup
 web/                  the website: WebAssembly shim and player, stylesheet, pages, site.mk
 docs/                 the whitepaper (English and German), remote.md, demo.c
 Makefile              builds bc101 and extracts the console fonts; `make site` for the website
@@ -223,4 +222,4 @@ attribution. The slides are only loaded as data by the program, so this split ca
 conflict. The Terminus console fonts are not in the repository: `make` extracts them from the
 system, and the website bundles them under the OFL 1.1.
 
-created with ♥ in bitcircus101 · assisted by Claude
+created with ♥ in bitcircus101 · assisted by AI

@@ -200,7 +200,6 @@ tools/flipbook.*      ganze Szenen als eigenständiges HTML-Flipbook, Spezifikat
 scripts/deploy.sh     auf dem Arbeitsrechner: rsync zum Pi, dann tools/install.sh; --setup einmalig
 scripts/tv            die Fernbedienung vom eigenen Terminal aus (ssh-Wrapper)
 tests/*.bats          Sequencer, Socket, Dispatcher: headless, auf jedem Linux
-scripts/setup-claude-identity.sh  Git-Identitätshelfer für das Setup der Betreiber
 web/                  die Website: WebAssembly-Shim und Player, Stylesheet, Seiten, site.mk
 docs/                 das Whitepaper (Deutsch und Englisch), remote.md, demo.c
 Makefile              baut bc101 und extrahiert die Konsolenfonts; `make site` für die Website
@@ -226,4 +225,4 @@ Newsletter wandern. Die Folien werden vom Programm nur als Daten geladen, der Sc
 also keinen Konflikt. Die Terminus-Konsolenfonts liegen nicht im Repository: `make` extrahiert
 sie aus dem System, und die Website bündelt sie unter der OFL 1.1.
 
-created with ♥ in bitcircus101 · assisted by Claude
+created with ♥ in bitcircus101 · assisted by AI

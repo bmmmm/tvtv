@@ -14,7 +14,7 @@ nav:
   - {href: "whitepaper.html", label: "Whitepaper"}
   - {href: "https://github.com/bmmmm/tvtv", label: "GitHub"}
 player: true
-footer: "created with ♥ in bitcircus101 · assisted by Claude"
+footer: "created with ♥ in bitcircus101 · assisted by AI"
 credits: "Code GPL-3.0-or-later, texts CC-BY-4.0. The letters are Terminus, the Linux console font (OFL 1.1)."
 ---
 
@@ -53,7 +53,7 @@ Every scene is one file with two functions: `init()` precomputes, `frame(t)` dra
 
 The TV needed some convincing first. The Pi speaks NTSC by default and the TV expects PAL, so the first picture was black and white. 576 interlaced lines flickered, so the show runs 720 × 288 progressive at 50 Hz. And a tube hides its edges, so a test card scene measured the overscan line by line.
 
-The show was programmed by Claude, an AI, over SSH from a Mac, without ever seeing the TV. That made the tools that render frames, probe motion and bundle whole scenes into a flipbook as important as the scenes themselves. The whitepaper tells that story.
+The show was programmed by an AI over SSH from a Mac, without ever seeing the TV. That made the tools that render frames, probe motion and bundle whole scenes into a flipbook as important as the scenes themselves. The whitepaper tells that story.
 
 Members steer the show over SSH: `ssh zapper` opens a remote control drawn in the terminal, every scene has a channel number, and a scene in C can be uploaded to become a channel of its own, built, test-run offscreen and swapped in with a rollback. The show runs in a sandbox, as a user that can do nothing else.
 

@@ -14,7 +14,7 @@ nav:
   - {href: "whitepaper.de.html", label: "Whitepaper"}
   - {href: "https://github.com/bmmmm/tvtv", label: "GitHub"}
 player: true
-footer: "created with ♥ in bitcircus101 · assisted by Claude"
+footer: "created with ♥ in bitcircus101 · assisted by AI"
 credits: "Code GPL-3.0-or-later, Texte CC-BY-4.0. Die Schrift ist Terminus, die Schrift der Linux-Konsole (OFL 1.1)."
 ---
 
@@ -53,7 +53,7 @@ Jede Szene ist eine Datei mit zwei Funktionen: `init()` rechnet vor, `frame(t)` 
 
 Der Fernseher wollte erst überredet werden. Der Pi spricht von Haus aus NTSC, der Fernseher erwartet PAL, also war das erste Bild schwarzweiß. 576 Zeilen im Zeilensprung flackerten, also läuft die Show mit 720 × 288 progressiv bei 50 Hz. Und eine Röhre versteckt ihre Ränder, also hat eine Testkarten-Szene den Overscan Zeile für Zeile vermessen.
 
-Programmiert hat die Show Claude, eine KI, per SSH vom Mac aus, ohne den Fernseher je zu sehen. Deshalb sind die Werkzeuge, die Bilder rendern, Bewegung messen und ganze Szenen zu einem Flipbook bündeln, so wichtig wie die Szenen selbst. Das Whitepaper erzählt diese Geschichte.
+Programmiert hat die Show eine KI per SSH vom Mac aus, ohne den Fernseher je zu sehen. Deshalb sind die Werkzeuge, die Bilder rendern, Bewegung messen und ganze Szenen zu einem Flipbook bündeln, so wichtig wie die Szenen selbst. Das Whitepaper erzählt diese Geschichte.
 
 Mitglieder steuern die Show per SSH: `ssh zapper` öffnet eine Fernbedienung im Terminal, jede Szene hat eine Programmnummer, und eine Szene in C lässt sich hochladen und wird zum eigenen Kanal, gebaut, offscreen durchgespielt und mit Rollback eingetauscht. Die Show läuft in einer Sandbox, als Nutzer, der sonst nichts darf.
 

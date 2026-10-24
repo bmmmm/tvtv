@@ -3,7 +3,7 @@ lang: en
 title: "Live pixels for a tube TV"
 pagetitle: "tvtv whitepaper: live pixels for a tube TV on a Raspberry Pi 1"
 subtitle: "How a demoscene show for a PAL tube TV runs on a Raspberry Pi 1 from 2012, and how it was built by an AI that never saw the screen."
-author: "bitcircus101, assisted by Claude"
+author: "bitcircus101, assisted by AI"
 date: "2026"
 description: "The tvtv whitepaper: video path, architecture, scene techniques, measurements on the Pi 1, the tool chain, and the making-of with an AI."
 eyebrow: "tvtv · whitepaper"
@@ -16,7 +16,7 @@ nav:
   - {href: "flipbook.html", label: "Flipbook"}
   - {href: "whitepaper.html", label: "Whitepaper", current: true}
   - {href: "https://github.com/bmmmm/tvtv", label: "GitHub"}
-footer: "created with ♥ in bitcircus101 · assisted by Claude"
+footer: "created with ♥ in bitcircus101 · assisted by AI"
 credits: "This text is CC-BY-4.0. Also available as a <a href=\"whitepaper.en.pdf\">PDF</a>."
 papersize: a4
 fontsize: 10pt
@@ -236,7 +236,7 @@ Doom also changes what a key means. Until now an op key could only zap; now any 
 
 ## 8. Making-of with an AI
 
-The show was programmed by Claude, Anthropic's AI model, working over SSH from a Mac. It never saw the TV. A human in the space did: reported the black and white picture, the flicker, read the numbers off the test card, and said when something looked wrong. Everything else, the C code, the tools, the slides, the scripts, came out of that conversation.
+The show was programmed by an AI model, working over SSH from a Mac. It never saw the TV. A human in the space did: reported the black and white picture, the flicker, read the numbers off the test card, and said when something looked wrong. Everything else, the C code, the tools, the slides, the scripts, came out of that conversation.
 
 Three things made this work, and they are the same three that make any remote graphics work manageable.
 
@@ -254,4 +254,4 @@ The code is GPL-3.0-or-later; the texts, this paper, the slide decks and the fli
 
 Source, slides and tools: <https://github.com/bmmmm/tvtv>. The show, the flipbook and this paper: <https://bmmmm.github.io/tvtv/>.
 
-created with ♥ in bitcircus101 · assisted by Claude
+created with ♥ in bitcircus101 · assisted by AI

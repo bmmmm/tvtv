@@ -4,8 +4,8 @@ SPDX-License-Identifier: CC-BY-4.0
 Diese Show läuft auf einem Raspberry Pi 1
 von 2012: ein Kern, 700 MHz, 512 MB RAM.
 
-Programmiert hat sie Claude, eine KI von
-Anthropic, per SSH vom Mac aus.
+Programmiert hat sie eine KI,
+per SSH vom Mac aus.
 
 Es gibt keine einzige Bilddatei:
 Jedes Pixel wird live berechnet.

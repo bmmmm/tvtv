@@ -3,7 +3,7 @@ lang: de
 title: "Live-Pixel für einen Röhrenfernseher"
 pagetitle: "tvtv-Whitepaper: Live-Pixel für einen Röhrenfernseher auf einem Raspberry Pi 1"
 subtitle: "Wie eine Demoszene-Show für einen PAL-Röhrenfernseher auf einem Raspberry Pi 1 von 2012 läuft, und wie eine KI sie gebaut hat, ohne den Bildschirm je zu sehen."
-author: "bitcircus101, assisted by Claude"
+author: "bitcircus101, assisted by AI"
 date: "2026"
 description: "Das tvtv-Whitepaper: Videoweg, Architektur, Szenentechniken, Messungen auf dem Pi 1, die Werkzeugkette und das Making-of mit einer KI."
 eyebrow: "tvtv · Whitepaper"
@@ -16,7 +16,7 @@ nav:
   - {href: "flipbook.de.html", label: "Flipbook"}
   - {href: "whitepaper.de.html", label: "Whitepaper", current: true}
   - {href: "https://github.com/bmmmm/tvtv", label: "GitHub"}
-footer: "created with ♥ in bitcircus101 · assisted by Claude"
+footer: "created with ♥ in bitcircus101 · assisted by AI"
 credits: "Dieser Text ist CC-BY-4.0. Auch als <a href=\"whitepaper.de.pdf\">PDF</a>."
 papersize: a4
 fontsize: 10pt
@@ -236,7 +236,7 @@ Doom ändert auch, was ein Schlüssel bedeutet. Bisher konnte ein op-Schlüssel 
 
 ## 8. Making-of mit einer KI
 
-Programmiert hat die Show Claude, das KI-Modell von Anthropic, per SSH vom Mac aus. Es hat den Fernseher nie gesehen. Ein Mensch im Raum schon: Er meldete das schwarzweiße Bild, das Flackern, las die Zahlen von der Testkarte ab und sagte, wenn etwas falsch aussah. Alles andere, der C-Code, die Werkzeuge, die Folien, die Skripte, kam aus diesem Gespräch.
+Programmiert hat die Show ein KI-Modell, per SSH vom Mac aus. Es hat den Fernseher nie gesehen. Ein Mensch im Raum schon: Er meldete das schwarzweiße Bild, das Flackern, las die Zahlen von der Testkarte ab und sagte, wenn etwas falsch aussah. Alles andere, der C-Code, die Werkzeuge, die Folien, die Skripte, kam aus diesem Gespräch.
 
 Drei Dinge haben das möglich gemacht, und es sind dieselben drei, die jede Grafikarbeit aus der Ferne handhabbar machen.
 
@@ -254,4 +254,4 @@ Der Code ist GPL-3.0-or-later; die Texte, dieser Text, die Folien-Decks und die 
 
 Quellcode, Folien und Werkzeuge: <https://github.com/bmmmm/tvtv>. Die Show, das Flipbook und dieser Text: <https://bmmmm.github.io/tvtv/index.de.html>.
 
-created with ♥ in bitcircus101 · assisted by Claude
+created with ♥ in bitcircus101 · assisted by AI
