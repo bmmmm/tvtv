@@ -273,6 +273,7 @@ static void term_size(void) {
 static const char *kind_color(const char *kind) {
     if (!strcmp(kind, "extra")) return "36";
     if (!strcmp(kind, "visual")) return "35";
+    if (!strcmp(kind, "social")) return "32";
     if (!strcmp(kind, "standby")) return "90";
     return "37";
 }

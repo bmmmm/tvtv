@@ -8,18 +8,27 @@
 #   ssh zapper tune <ch|name>  |  hold <ch|name>  |  play <ch|name> [seconds]
 #   ssh -t zapper doom [wad] [level] [skill]  |  ssh zapper doom list      Doom on the TV, played here
 #   ssh zapper upload <name> < name.c  |  rm <name>  |  fetch <name>        admin keys only
+#   ssh zapper px <x> <y> <farbe>  |  text <nr> <dein Text>    the social channels, as ssh:<who>
+#   ssh zapper social [list | mode]   the bridge tvtv-social: status, its content, the modes
+#   ssh zapper social mode <name> | pause | resume | ban <wer> | unban <wer> | bans
+#   ssh zapper social rm code <n> | rm text <n> | rm pixel <x> <y> <w> <h>   admin keys only
 # Roles: a key's line in /etc/tvtv/authorized_keys ends in "<who> <op|admin>" (tools/tv-keys.sh);
 # sshd tells us which key logged in (ExposeAuthInfo). Run by hand, e.g. from the console as user zapper,
 # the command comes from the arguments and TVTV_ROLE/TVTV_WHO may set the role.
 # Uploads: the file must be C that defines `const Scene scene_<name>`; it is built, run offscreen
 # through its whole length (tools/preview.c bench), and only then does the show restart on the new
 # binary. If the show does not come back, the previous binary is put back and systemd restarts it.
+# The social channels (24 to 26) show what the bridge tvtv-social takes from Mastodon; it has a
+# control socket of its own with the show's line protocol, so tvctl talks to it. px and text go
+# there as `submit <who> ...` and are checked like a post; whatever else the bridge can change
+# takes an admin key here.
 set -euo pipefail
 
 TVTV_HOME=${TVTV_HOME:-/opt/tvtv}
 TVTV_KEYS=${TVTV_KEYS:-/etc/tvtv/authorized_keys}
 TVTV_SOCK=${TVTV_SOCK:-/run/bc101/ctl}
 TVTV_UNIT=${TVTV_UNIT:-bc101} # the show's systemd unit; tests name one that does not exist
+TVTV_SOCIAL_SOCK=${TVTV_SOCIAL_SOCK:-/run/tvtv-social.sock}
 BIN=$TVTV_HOME/bc101  # the show: only for -l (the channel table)
 CTL=$TVTV_HOME/tvctl  # the client, built without scene code: an upload cannot break it
 DOOM=$TVTV_HOME/fbdoom
@@ -29,6 +38,7 @@ MAX_VISUALS=32    # channels 30..61
 BUILD_TIMEOUT=900 # a full build takes over a minute on the Pi 1
 SMOKE_TIMEOUT=180
 NAME_RE='^[a-z][a-z0-9_]{0,15}$'
+IDENT_RE='^[a-z0-9][a-z0-9_.@:-]{0,63}$' # alice@bonn.social, bonn.social, ssh:bma (docs/steuerung.md)
 
 who=local
 role=op
@@ -66,6 +76,9 @@ identify() {
 
 need_admin() { [[ $role == admin ]] || die 3 "$1 needs an admin key (you are $who, $role)"; }
 valid_name() { [[ $1 =~ $NAME_RE ]]; }
+# the show's own names that no visual may take, also before the installed binary lists them: the
+# social channels (the Makefile and tools/gen-visuals.sh skip such files too)
+reserved() { [[ $1 == pixel || $1 == dem0 || $1 == text ]]; }
 valid_target() { [[ $1 =~ ^[0-9]{1,2}$ || $1 =~ $NAME_RE ]]; }
 valid_secs() { [[ $1 =~ ^[0-9]{1,4}(\.[0-9]{1,2})?$ ]]; }
 
@@ -96,9 +109,15 @@ tvtv remote -- ssh zapper [command]
   doom [wad] [level] [skill]  Doom on the TV, this terminal is the controller (ssh -t);
                             level e1m1..e4m9 or map01..map32, skill 1-5; no level: the menu
   doom list                 the WADs (USB stick, then the system's)
+  px <x> <y> <farbe>        a pixel on the pixel wall (channel 24), like a post: px 12 30 rot
+  text <nr> <dein Text>     a line of the text page (channel 26), like a post: text 2 Hallo
+  social [list | mode]      the social channels' bridge: its status, what it shows, the modes
 admin keys:
   upload <name> < name.c    a new visual (channel 30+), C that defines const Scene scene_<name>
   rm <name> | fetch <name>  delete | download the source
+  social mode <name>        the bridge's mode    social pause | resume   take nothing | again
+  social ban <wer> | unban <wer> | bans     a sender or an instance: alice@bonn.social, ssh:bob
+  social rm code <n> | rm text <n> | rm pixel <x> <y> <w> <h>   take something off the tube
 TXT
 }
 
@@ -189,6 +208,7 @@ upload() {
   valid_name "$name" || die 2 "visual name: a-z, 0-9 and _, 1-16 chars, starting with a letter"
   kind=$(kind_of "$name")
   [[ -z $kind || $kind == visual ]] || die 2 "'$name' is a built-in scene"
+  ! reserved "$name" || die 2 "'$name' is reserved for the show"
   mkdir -p "$TVTV_HOME/visuals"
   dst=$TVTV_HOME/visuals/$name.c
   if [[ ! -f $dst ]]; then
@@ -325,13 +345,76 @@ doom() {
     > "$TVTV_HOME/doom/fbdoom.log" 2>&1
 }
 
+# ---------- the social channels ----------
+
+# One request to the bridge's control socket, its reply on stdout; exit 1 for its "err".
+social_ctl() {
+  [[ -S $TVTV_SOCIAL_SOCK ]] || die 1 "social is not set up on this TV"
+  local out rc=0
+  out=$("$CTL" -s "$TVTV_SOCIAL_SOCK" "$@" 2>&1) || rc=$?
+  ((rc != 2)) || die 1 "the social bridge does not answer (tvtv-social)"
+  printf '%s\n' "$out"
+  return "$rc"
+}
+
+social() {
+  local sub=${a[1]:-status} n=${#a[@]} usage="usage: social rm code <n> | rm text <n> | rm pixel <x> <y> <w> <h>"
+  case $sub in
+    status | list | bans)
+      ((n <= 2)) || die 2 "social $sub takes no arguments"
+      [[ $sub != bans ]] || need_admin "social bans"
+      social_ctl "$sub"
+      ;;
+    mode)
+      if ((n == 2)); then social_ctl mode; return; fi
+      [[ $n -eq 3 && ${a[2]} =~ ^[a-z0-9]{1,15}$ ]] || die 2 "usage: social mode [name]"
+      need_admin "social mode"
+      log "social mode ${a[2]}"
+      social_ctl mode "${a[2]}"
+      ;;
+    pause | resume)
+      ((n == 2)) || die 2 "social $sub takes no arguments"
+      need_admin "social $sub"
+      log "social $sub"
+      social_ctl "$sub"
+      ;;
+    ban | unban)
+      [[ $n -eq 3 && ${a[2]} =~ $IDENT_RE ]] || die 2 "usage: social $sub <alice@bonn.social | bonn.social | ssh:bob>"
+      need_admin "social $sub"
+      log "social $sub ${a[2]}"
+      social_ctl "$sub" "${a[2]}"
+      ;;
+    rm)
+      case ${a[2]:-} in
+        code | text) [[ $n -eq 4 && ${a[3]} =~ ^[1-8]$ ]] || die 2 "$usage" ;;
+        pixel) [[ $n -eq 7 && ${a[3]} =~ ^[0-9]{1,2}$ && ${a[4]} =~ ^[0-9]{1,2}$ && ${a[5]} =~ ^[0-9]{1,2}$ &&
+          ${a[6]} =~ ^[0-9]{1,2}$ ]] || die 2 "$usage" ;;
+        *) die 2 "$usage" ;;
+      esac
+      need_admin "social rm"
+      log "social ${a[*]:1}"
+      social_ctl "${a[@]:1}"
+      ;;
+    *) die 2 "unknown command 'social $sub' -- ssh zapper help" ;;
+  esac
+}
+
+# A pixel or a line of the text page from this key, as ssh:<who>: the bridge checks it as it
+# checks a post (waiting times, limits, bans), so the key needs a name.
+submit() {
+  [[ $who != unknown && $who =~ ^[a-z0-9_.-]{1,24}$ ]] || die 3 "${a[0]} needs a key with a name (tv-keys add)"
+  log "${a[*]}"
+  social_ctl submit "$who" "${a[@]}"
+}
+
 # ---------- main ----------
 
 identify
 if [[ -n ${SSH_ORIGINAL_COMMAND+x} ]]; then cmd=$SSH_ORIGINAL_COMMAND; else cmd=$*; fi
 [[ ${#cmd} -le 80 ]] || die 2 "command too long"
-# Only plain words reach the case below: letters, digits, space, dot, underscore and dash.
-[[ $cmd =~ ^[A-Za-z0-9_.\ -]*$ ]] || die 2 "unsupported characters in command"
+# Only plain words reach the case below: letters, digits, space, dot, underscore, dash, and @ and :
+# for the social channels' identities (alice@bonn.social, ssh:bob).
+[[ $cmd =~ ^[A-Za-z0-9_.@:\ -]*$ ]] || die 2 "unsupported characters in command"
 a=()
 read -r -a a <<< "$cmd" || true
 case ${a[0]:-} in
@@ -371,5 +454,15 @@ case ${a[0]:-} in
   upload) need_admin upload; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: upload <name> < name.c"; upload "${a[1]}" ;;
   rm) need_admin rm; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: rm <name>"; remove "${a[1]}" ;;
   fetch) need_admin fetch; [[ ${#a[@]} -eq 2 ]] || die 2 "usage: fetch <name>"; fetch "${a[1]}" ;;
+  social) social ;;
+  px)
+    [[ ${#a[@]} -eq 4 && ${a[1]} =~ ^[0-9]{1,2}$ && ${a[2]} =~ ^[0-9]{1,2}$ && ${a[3]} =~ ^[A-Za-z0-9]{1,16}$ ]] ||
+      die 2 "usage: px <x> <y> <farbe>   x 0-63, y 0-47, farbe 0-15 or a name: px 12 30 rot"
+    submit
+    ;;
+  text)
+    [[ ${#a[@]} -ge 3 && ${a[1]} =~ ^[1-8]$ ]] || die 2 "usage: text <nr> <dein Text>   e.g. text 2 Hallo"
+    submit
+    ;;
   *) die 2 "unknown command '${a[0]}' -- ssh zapper help" ;;
 esac

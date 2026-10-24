@@ -1,11 +1,13 @@
 #!/usr/bin/env bats
-# tools/tv-dispatch against a headless show in a scratch install, with faked sshd variables.
+# tools/tv-dispatch against a headless show in a scratch install, with faked sshd variables and a
+# stand-in for the social bridge's control socket (tests/fake-social.py, needs python3).
 # Run from the repo root: bats tests/dispatch.bats   (builds the show once, takes a while)
 setup_file() {
   cd "$BATS_TEST_DIRNAME/.." || exit 1
   T=$BATS_FILE_TMPDIR
   export TVTV_HOME="$T/home" TVTV_SOCK="$T/ctl" TVTV_KEYS="$T/authorized_keys"
   export TVTV_UNIT=tvtv-test-no-such-unit # the Pi's bc101 unit must not decide anything here
+  export TVTV_SOCIAL_SOCK="$T/social.sock"
   mkdir -p "$TVTV_HOME"
   cp -r src slides tools Makefile system "$TVTV_HOME/"
   make -s -C "$TVTV_HOME" bc101 tvctl build/preview fonts/big.psf fonts/small.psf > /dev/null
@@ -16,9 +18,14 @@ setup_file() {
   for who in alice bob mallory; do
     printf 'publickey %s\n' "$(cut -d' ' -f1,2 "$T/$who.pub")" > "$T/auth.$who"
   done
+  python3 tests/fake-social.py "$TVTV_SOCIAL_SOCK" "$T/social.log" &
+  echo $! > "$T/social.pid"
   start_show
 }
-teardown_file() { stop_show; }
+teardown_file() {
+  stop_show
+  kill "$(cat "$BATS_FILE_TMPDIR/social.pid")" 2> /dev/null || true
+}
 setup() { cd "$BATS_TEST_DIRNAME/.." || exit 1; T=$BATS_FILE_TMPDIR; }
 
 start_show() {
@@ -255,6 +262,120 @@ C
   [[ $output != *"scene=demo"* ]]
   run tv alice rm demo
   [ "$status" -eq 1 ]
+}
+
+@test "social: status, list and the modes, for any key" {
+  run tv bob social
+  [ "$status" -eq 0 ]
+  [[ $output == "ok"*"mode=normal"*"mastodon=ok"* ]]
+  run tv bob social list
+  [ "$status" -eq 0 ]
+  [[ $output == *"code 1 @alice@bonn.social"* ]]
+  run tv bob social mode
+  [ "$status" -eq 0 ]
+  [[ $output == "ok normal"*"party px="* ]]
+  [ "$(tail -n 3 "$T/social.log")" = "$(printf 'status\nlist\nmode')" ]
+}
+
+@test "social: whatever changes the bridge takes an admin key" {
+  local c cmds=("social mode party" "social pause" "social resume" "social ban spam@example.social"
+    "social unban mastodon:spam@example.social" "social bans" "social rm code 2" "social rm text 3"
+    "social rm pixel 0 0 64 48")
+  for c in "${cmds[@]}"; do
+    run tv bob "$c"
+    [[ $status -eq 3 && $output == *"needs an admin key (you are bob, op)"* ]] || { echo "$c: $output"; return 1; }
+  done
+  run grep -qx "mode party" "$T/social.log" # nothing reached the bridge ("! grep" would not fail)
+  [ "$status" -eq 1 ]
+  for c in "${cmds[@]}"; do
+    run tv alice "$c"
+    [ "$status" -eq 0 ] || { echo "$c: $output"; return 1; }
+    [ "$(tail -n 1 "$T/social.log")" = "${c#social }" ]
+  done
+  run tv alice social mode party
+  [ "$output" = "ok mode=party" ]
+  run tv alice social mode nonsense
+  [ "$status" -eq 1 ]
+  [ "$output" = "err mode unbekannter Modus" ]
+}
+
+@test "social: the arguments are checked before anything goes to the bridge" {
+  local n bad
+  n=$(wc -l < "$T/social.log")
+  for bad in "social mode Party" "social mode a b" "social pause now" "social ban" "social ban -x" \
+    "social rm code 9" "social rm code" "social rm text 0" "social rm pixel 1 2 3" "social rm pixel 1 2 3 444" \
+    "social rm frob 1" "social frob" "social list all"; do
+    run tv alice "$bad"
+    [ "$status" -eq 2 ] || { echo "$bad: $output"; return 1; }
+  done
+  [ "$(wc -l < "$T/social.log")" -eq "$n" ]
+}
+
+@test "px and text: any key with a name, as ssh:<who>, checked by the bridge like a post" {
+  run tv bob px 12 30 rot
+  [ "$status" -eq 0 ]
+  [ "$output" = "ok accepted pixel 57" ]
+  [ "$(tail -n 1 "$T/social.log")" = "submit bob px 12 30 rot" ]
+  run tv alice text 2 Hallo aus dem Space
+  [ "$status" -eq 0 ]
+  [ "$output" = "ok accepted text 58" ]
+  [ "$(tail -n 1 "$T/social.log")" = "submit alice text 2 Hallo aus dem Space" ]
+  run tv bob px 99 0 1
+  [ "$status" -eq 1 ]
+  [ "$output" = "err px_range x 0-63, y 0-47." ]
+  run tv mallory px 1 2 3
+  [ "$status" -eq 3 ]
+  [[ $output == *"px needs a key with a name"* ]]
+  local bad
+  for bad in "px 1 2" "px 1 2 3 4" "px 123 1 rot" "px a 1 rot" "text 9 x" "text 2" "text x Hallo"; do
+    run tv bob "$bad"
+    [ "$status" -eq 2 ] || { echo "$bad: $output"; return 1; }
+  done
+}
+
+@test "the whitelist lets @ and : through for identities, and nothing else new" {
+  run tv alice social ban mastodon:spam@example.social
+  [ "$status" -eq 0 ]
+  local bad
+  for bad in 'social ban a;b' 'px 1 2 $x' 'text 1 `id`' 'social ban a|b' "text 1 it's" 'text 1 a&b' \
+    'text 1 (x)' 'text 1 a>b' 'social ban a\b' 'text 1 #x' 'text 1 "x"'; do
+    run tv bob "$bad"
+    [[ $status -eq 2 && $output == *"unsupported characters"* ]] || { echo "$bad: $output"; return 1; }
+  done
+}
+
+@test "social without the bridge: not set up here, or not answering" {
+  TVTV_SOCIAL_SOCK="$T/none" run tv bob social
+  [ "$status" -eq 1 ]
+  [ "$output" = "tv: social is not set up on this TV" ]
+  python3 -c 'import socket, sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$T/dead.sock"
+  TVTV_SOCIAL_SOCK="$T/dead.sock" run tv bob px 1 2 3
+  [ "$status" -eq 1 ]
+  [ "$output" = "tv: the social bridge does not answer (tvtv-social)" ]
+}
+
+@test "help lists px, text and social" {
+  run tv bob help
+  [[ $output == *"px <x> <y> <farbe>"* ]]
+  [[ $output == *"text <nr> <dein Text>"* ]]
+  [[ $output == *"social [list | mode]"* ]]
+  [[ $output == *"social mode <name>"* ]]
+}
+
+@test "pixel, dem0 and text are the show's names: no visual takes them" {
+  # an older show that does not list them yet: refused all the same, before anything is written
+  mkdir -p "$T/old"
+  printf '#!/bin/sh\necho " 1 boot       10s loop"\n' > "$T/old/bc101"
+  chmod +x "$T/old/bc101"
+  local n
+  for n in pixel dem0 text; do
+    run tv alice upload "$n" < "$TVTV_HOME/src/scenes/black.c"
+    [[ $status -eq 2 && $output == *"'$n' is a built-in scene"* ]] || { echo "$n: $output"; return 1; }
+    TVTV_HOME="$T/old" run tv alice upload "$n" < "$TVTV_HOME/src/scenes/black.c"
+    [[ $status -eq 2 && $output == *"'$n' is reserved for the show"* ]] || { echo "$n (old): $output"; return 1; }
+  done
+  [ ! -e "$T/old/visuals" ]
+  [ ! -e "$TVTV_HOME/visuals/pixel.c" ]
 }
 
 @test "upload: a build that dies on the tube is rolled back (last: it kills the show)" {

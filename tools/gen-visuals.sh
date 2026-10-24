@@ -3,8 +3,9 @@
 # Writes the table of uploaded visuals as C: one `extern` and one table entry per visuals/<name>.c.
 # Called by the Makefile (build/visuals.c); the Makefile reruns it when the directory changes.
 # Usage: gen-visuals.sh [dir]   (default: visuals)
-# A file name must be a valid scene name: a-z, 0-9 and _, 1-16 chars, starting with a letter;
-# the file must define `const Scene scene_<name>`, which the upload path checks before it gets here.
+# A file name must be a valid scene name: a-z, 0-9 and _, 1-16 chars, starting with a letter, and
+# not one of the show's own (pixel, dem0, text; the Makefile leaves those files out as well); the
+# file must define `const Scene scene_<name>`, which the upload path checks before it gets here.
 set -eu
 dir=${1:-visuals}
 names=""
@@ -13,6 +14,7 @@ for f in "$dir"/*.c; do
   n=${f##*/}
   n=${n%.c}
   case $n in
+    pixel | dem0 | text) echo "gen-visuals: $f: '$n' is the show's own name, skipped (ssh zapper rm $n)" >&2; continue ;;
     [a-z] | [a-z][a-z0-9_]*) [ ${#n} -le 16 ] || { echo "gen-visuals: $f: name too long, skipped" >&2; continue; } ;;
     *) echo "gen-visuals: $f: bad name, skipped" >&2; continue ;;
   esac

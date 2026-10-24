@@ -5,8 +5,11 @@ LDLIBS  := -lm
 FONTSRC := /usr/share/consolefonts
 
 # Uploaded visuals live outside the repo (visuals/, see tools/tv-dispatch); their table is generated.
+# The show's own names are never a visual's (one uploaded before a name was taken would clash with
+# the built-in scene_<name>); tools/gen-visuals.sh skips them too.
 VISUALS ?= visuals
-VSRCS := $(sort $(wildcard $(VISUALS)/*.c))
+RESERVED := pixel dem0 text
+VSRCS := $(filter-out $(RESERVED:%=$(VISUALS)/%.c),$(sort $(wildcard $(VISUALS)/*.c)))
 SRCS := $(filter-out src/tvctl.c,$(wildcard src/*.c src/scenes/*.c)) $(VSRCS)
 OBJS := $(SRCS:%.c=build/%.o) build/visuals.o
 
@@ -25,9 +28,13 @@ bc101: $(OBJS)
 tvctl: build/src/tvctl.o build/src/ctl.o build/src/remote.o
 	$(CC) -o $@.tmp $^ $(LDLIBS) && mv $@.tmp $@
 
-build/%.o: %.c src/core.h src/scenes.h Makefile
+build/%.o: %.c src/core.h src/scenes.h src/social.h src/dem0.h Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -Isrc -c -o $@.tmp $< && mv $@.tmp $@
+
+# dem0 is float32 to the bit (docs/remote.md, "Social channels"): no fused multiply-add, which
+# rounds once where dem0 rounds twice, on a CPU that has one.
+build/src/dem0.o: override CFLAGS += -ffp-contract=off
 
 # Regenerated on every run, but only replaced when it changed, so nothing relinks needlessly;
 # a removed visual (or a removed directory) therefore drops out of the table as well.

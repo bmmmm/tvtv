@@ -2,6 +2,8 @@
 // The scene table: the default loop in play order, plus scenes selectable by name or number only.
 // A new built-in scene is declared here and appended to one of the two lists; uploaded visuals
 // arrive through build/visuals.c, which tools/gen-visuals.sh generates and every build links.
+// The social channels (CH_SOCIAL) show what the bridge tvtv-social writes on the Pi; the website,
+// which plays the loop and the extras, has nothing to show of them.
 #include "scenes.h"
 
 #include <ctype.h>
@@ -22,6 +24,13 @@ const int scene_nloop = (int)(sizeof scene_loop / sizeof scene_loop[0]);
 
 const Scene *const scene_extra[] = {&scene_explain, &scene_stack, &scene_testcard};
 const int scene_nextra = (int)(sizeof scene_extra / sizeof scene_extra[0]);
+_Static_assert(CH_EXTRA + (int)(sizeof scene_extra / sizeof scene_extra[0]) <= CH_SOCIAL,
+               "the extras have grown into the social channels' 24");
+
+const Scene *const scene_social[] = {&scene_pixel, &scene_dem0, &scene_text};
+const int scene_nsocial = (int)(sizeof scene_social / sizeof scene_social[0]);
+_Static_assert(CH_SOCIAL + (int)(sizeof scene_social / sizeof scene_social[0]) <= CH_VISUAL,
+               "the social channels have grown into the visuals' 30");
 
 int scene_channel(const Scene *sc) {
     if (sc == &scene_black) return 0;
@@ -29,6 +38,8 @@ int scene_channel(const Scene *sc) {
         if (sc == scene_loop[k]) return 1 + k;
     for (int k = 0; k < scene_nextra; k++)
         if (sc == scene_extra[k]) return CH_EXTRA + k;
+    for (int k = 0; k < scene_nsocial; k++)
+        if (sc == scene_social[k]) return CH_SOCIAL + k;
     for (int k = 0; k < scene_nvisuals; k++)
         if (sc == scene_visuals[k]) return CH_VISUAL + k;
     return -1;
@@ -38,6 +49,7 @@ const Scene *scene_by_channel(int ch) {
     if (ch == 0) return &scene_black;
     if (ch >= 1 && ch <= scene_nloop) return scene_loop[ch - 1];
     if (ch >= CH_EXTRA && ch < CH_EXTRA + scene_nextra) return scene_extra[ch - CH_EXTRA];
+    if (ch >= CH_SOCIAL && ch < CH_SOCIAL + scene_nsocial) return scene_social[ch - CH_SOCIAL];
     if (ch >= CH_VISUAL && ch < CH_VISUAL + scene_nvisuals) return scene_visuals[ch - CH_VISUAL];
     return NULL;
 }
@@ -64,6 +76,7 @@ const char *scene_kind(const Scene *sc) {
     int ch = scene_channel(sc);
     if (ch == 0) return "standby";
     if (ch >= CH_VISUAL) return "visual";
+    if (ch >= CH_SOCIAL) return "social";
     if (ch >= CH_EXTRA) return "extra";
     return ch > 0 ? "loop" : "?";
 }
@@ -75,7 +88,7 @@ size_t scene_list_str(char *out, size_t n) {
         if (!sc) continue;
         if (sc->dur > 0 && !sc->length)
             len += (size_t)snprintf(out + len, n - len, "%2d %-8s %4.0fs %s\n", ch, sc->name, sc->dur, scene_kind(sc));
-        else // slides: the length is known after init
+        else // slides, social: the length is known after init
             len += (size_t)snprintf(out + len, n - len, "%2d %-8s     - %s\n", ch, sc->name, scene_kind(sc));
     }
     return len < n ? len : n - 1;

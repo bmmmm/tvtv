@@ -20,6 +20,11 @@ The show has a remote control: `ssh zapper` opens a zapper in your terminal, LED
 all, and members with a key switch channels, hold one, or upload their own visual in C,
 which becomes a channel of its own. See "Remote control" below and [docs/remote.md](docs/remote.md).
 
+Channels 24 to 26 come from Mastodon: a pixel wall that anyone paints with a post
+(`@tvtv px 12 30 rot`), programs in dem0, a tiny language for moving pictures that the show
+computes pixel by pixel (`@tvtv code sin(x/16+t)*40+r*90`), and a page like teletext. A bridge
+of its own collects them; the show only reads the file it writes, and checks every byte of it.
+
 ## Hardware
 
 | Part | Detail |
@@ -93,16 +98,18 @@ ssh zapper                    # the zapper: digits pick a channel, arrows zap, E
 ssh zapper 7                  # or one command: channel 7 and hold it
 ssh zapper next | auto | status | list | play testcard 30
 ssh zapper upload foo < foo.c # admin keys: a new visual, channel 30+; rm foo | fetch foo
+ssh zapper px 12 30 rot       # any key: a pixel on the pixel wall (24); text 2 Hallo: the text page (26)
+ssh zapper social             # the social bridge's status; social mode | pause | ban ...: admin keys
 ```
 
 Every scene has a channel number: 00 standby (black), 01–17 the loop, 20–22 the extras,
-30 and up the uploaded visuals. The user `zapper` on the Pi can run exactly one program, the
-dispatcher, with a key only; keys come in two roles (`tv-keys add <who> op|admin`). An
-upload is compiled, run offscreen through its whole length and only then swapped in; if the
-show does not come back, the previous build returns. `scripts/tv` wraps the ssh calls, via
-the alias or its own settings (`tv config`: host, user, key), and `bc101 ctl <command>` talks
-to the show from the Pi's console. Setup, keys, the key map and the security model:
-[docs/remote.md](docs/remote.md).
+24–26 the social channels, 30 and up the uploaded visuals. The user `zapper` on the Pi can
+run exactly one program, the dispatcher, with a key only; keys come in two roles
+(`tv-keys add <who> op|admin`). An upload is compiled, run offscreen through its whole length
+and only then swapped in; if the show does not come back, the previous build returns.
+`scripts/tv` wraps the ssh calls, via the alias or its own settings (`tv config`: host, user,
+key), and `bc101 ctl <command>` talks to the show from the Pi's console. Setup, keys, the key
+map and the security model: [docs/remote.md](docs/remote.md).
 
 ## Previewing without the Pi
 
@@ -178,25 +185,29 @@ sine term cpu` (see `src/scenes/slides.c`).
 
 ```
 src/core.{c,h}        canvas (360x288 RGB565), fonts, drawing helpers
-src/scenes.{c,h}      the scene table with channel numbers: loop, extras, uploaded visuals
+src/scenes.{c,h}      the scene table with channel numbers: loop, extras, social, uploaded visuals
+src/social.{c,h}      the social channels' snapshot: read, checked byte by byte, the last valid one kept
+src/dem0.{c,h}        the dem0 VM: checks a program's bytecode, runs it lane-wise over the canvas
 src/main.c            framebuffer setup, scene sequencer, fades, fps log, control commands
 src/ctl.{c,h}         the control socket, server side and `bc101 ctl` client
 src/remote.c          the zapper, a remote control drawn in the terminal
 src/tvctl.c           tvctl: ctl and zapper as a client without scene code
-src/scenes/*.c        one file per scene
+src/scenes/*.c        one file per scene (pixel, dem0, text: the social channels, 24-26)
 slides/*.txt          German text of the slide decks (data, not code)
 system/               systemd unit template (sandboxed) and the sshd drop-in for user zapper
 tools/install.sh      on the Pi: make, restart, check it stays up
 tools/setup-remote.sh on the Pi, once: user zapper, /opt/tvtv, dispatcher, keys file, sshd
 tools/tv-dispatch     what `ssh zapper` runs: commands, the zapper, uploads with rollback
 tools/tv-keys.sh      on the Pi: keys and roles for the remote
+tools/social-pi-check.sh  on the Pi: the social channels' VM and reader on the device, a bench, the budget
 tools/gen-visuals.sh  generates build/visuals.c, the table of uploaded visuals
 tools/boot-report.sh  on the Pi: boot timing and network logs
 tools/preview.c       offscreen renderer, benchmark and motion probe
 tools/flipbook.*      whole scenes as a self-contained HTML flipbook, spec per language
 scripts/deploy.sh     on the workstation: rsync to the Pi, then tools/install.sh; --setup once
+scripts/social-check.sh  on the workstation: copies tools/social-pi-check.sh's parts to the Pi, runs it
 scripts/tv            the remote from your own terminal (ssh wrapper)
-tests/*.bats          sequencer, socket, dispatcher: headless, on any Linux box
+tests/*.bats          sequencer, socket, dispatcher, social channels: headless, on any Linux box
 web/                  the website: WebAssembly shim and player, stylesheet, pages, site.mk
 docs/                 the whitepaper (English and German), remote.md, demo.c
 Makefile              builds bc101 and extracts the console fonts; `make site` for the website

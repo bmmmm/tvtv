@@ -8,8 +8,10 @@ PANDOC ?= pandoc
 NODE   ?= $(shell command -v node)
 BASE   := https://bmmmm.github.io/tvtv
 
-# build/visuals.c is the generated table of uploaded visuals (empty here), see the Makefile.
-WEB_SRCS    := src/core.c src/scenes.c $(wildcard src/scenes/*.c) build/visuals.c web/shim.c
+# build/visuals.c is the generated table of uploaded visuals (empty here), see the Makefile. The
+# social channels are not on the website, but their scenes link against the snapshot reader and
+# the dem0 VM.
+WEB_SRCS    := src/core.c src/scenes.c src/social.c src/dem0.c $(wildcard src/scenes/*.c) build/visuals.c web/shim.c
 WEB_EXPORTS := _web_init,_web_w,_web_h,_web_scene_count,_web_loop_count,_web_scene_name,_web_scene_dur,_web_start,_web_current,_web_time,_web_length,_web_step
 PAGES := index.html index.de.html whitepaper.html whitepaper.de.html flipbook.html flipbook.de.html
 SITE_FILES := $(addprefix $(SITE)/,$(PAGES) 404.html whitepaper.en.pdf whitepaper.de.pdf bc101.js \
@@ -41,7 +43,7 @@ $(SITE)/img/.stamp: tools/figures.py tools/flipbook.py build/preview | $(SITE)
 
 # The scenes as WebAssembly; fonts and slides travel inside the module. Needs fonts/*.psf,
 # which `make` extracts on Debian/Ubuntu (console-setup) and the README explains for the Mac.
-$(SITE)/bc101.js: $(WEB_SRCS) src/core.h src/scenes.h web/site.mk $(wildcard slides/*.txt) | $(SITE)
+$(SITE)/bc101.js: $(WEB_SRCS) src/core.h src/scenes.h src/social.h src/dem0.h web/site.mk $(wildcard slides/*.txt) | $(SITE)
 	@test -f fonts/big.psf -a -f fonts/small.psf || { echo "fonts/*.psf missing: run make (Linux) or copy them from the Pi (see README)" >&2; exit 1; }
 	$(EMCC) -O2 -Wall -Isrc $(WEB_SRCS) -o $@ --embed-file fonts --embed-file slides \
 	  -sEXPORTED_FUNCTIONS=$(WEB_EXPORTS) -sEXPORTED_RUNTIME_METHODS=cwrap,HEAPU8 \
