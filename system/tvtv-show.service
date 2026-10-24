@@ -1,23 +1,23 @@
 [Unit]
 Description=bc101 demo show on the TV (tty1)
-After=systemd-user-sessions.service getty@tty1.service bc101.socket
+After=systemd-user-sessions.service getty@tty1.service tvtv-show.socket
 Conflicts=getty@tty1.service
-# The control socket comes from bc101.socket, which starts the show on the first remote command.
-Requires=bc101.socket
+# The control socket comes from tvtv-show.socket, which starts the show on the first remote command.
+Requires=tvtv-show.socket
 # Room for the rollback after a bad visual: a few quick restarts must not stop the service.
 StartLimitIntervalSec=60
 StartLimitBurst=10
 
 [Service]
 # tools/install.sh fills in the install directory and its owner before installing this unit.
-ExecStart=@BC101_DIR@/bc101
-WorkingDirectory=@BC101_DIR@
-User=@BC101_USER@
+ExecStart=@TVTV_HOME@/bc101
+WorkingDirectory=@TVTV_HOME@
+User=@TVTV_USER@
 SupplementaryGroups=video tty
-# /run/bc101: the control socket for the remote and anim.log; group members may use both.
-RuntimeDirectory=bc101
+# /run/tvtv-show: anim.log, for group members (the control socket is /run/tvtv-show.sock).
+RuntimeDirectory=tvtv-show
 RuntimeDirectoryMode=0750
-# Kept when the show stops: the socket file in it belongs to bc101.socket and must outlive the show.
+# Kept when the show stops, so anim.log can still be read.
 RuntimeDirectoryPreserve=yes
 StandardInput=tty
 StandardOutput=tty
@@ -62,4 +62,4 @@ UMask=0027
 
 [Install]
 WantedBy=multi-user.target
-Also=bc101.socket
+Also=tvtv-show.socket

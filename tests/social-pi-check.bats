@@ -16,7 +16,7 @@ setup_file() {
 setup() {
   cd "$BATS_TEST_DIRNAME/.." || exit 1
   T=$BATS_FILE_TMPDIR
-  unset BC101_HOST
+  unset TVTV_DEPLOY_HOST BC101_HOST
   export TVTV_ENV=$BATS_TEST_TMPDIR/no-settings
 }
 
@@ -31,7 +31,7 @@ args=()
 for a in "\$@"; do
   case \$a in
     -*) args+=("\$a") ;;
-    *:*) args+=("$2/\${a#*:}") ;;
+    *:*) mkdir -p "\$(dirname "$2/\${a#*:}")"; args+=("$2/\${a#*:}") ;; # what --rsync-path does there
     *) args+=("\$a") ;;
   esac
 done
@@ -104,45 +104,46 @@ SH
   [[ $output == *"BC101_DEM0_BUDGET: 1 to 1000000000"* ]]
 }
 
-@test "scripts/social-check.sh: the parts to ~/tvtv-social-check on BC101_HOST, the check run there" {
+@test "scripts/social-check.sh: the parts to ~/tvtv-deploy/social-check on TVTV_DEPLOY_HOST, the check run there" {
   fake_pi "$T/bin" "$T/pi"
-  run env PATH="$T/bin:$PATH" BC101_HOST=pi-test TMPDIR="$T/tmp" scripts/social-check.sh --quick
+  run env PATH="$T/bin:$PATH" TVTV_DEPLOY_HOST=pi-test TMPDIR="$T/tmp" scripts/social-check.sh --quick
   echo "$output"
   [ "$status" -eq 0 ]
   [[ $output == *"== 10 passed, 0 failed" ]]
   # the check's defaults: the show's budget, 10 ms
   [[ $output == *"dem0 bench: budget 600000, 10 pictures each;"* ]]
   [[ $output == *"suggested BC101_DEM0_BUDGET for 10 ms per picture"* ]]
-  [ "$(cat "$T/bin/rsync.args")" = "-aR --delete Makefile src tools/social-pi-check.sh tools/preview.c \
-tools/gen-visuals.sh tests/dem0-check.c tests/social-check.c tests/mksnap.py tests/dem0-vectors.txt pi-test:tvtv-social-check/" ]
-  [ "$(cat "$T/bin/ssh.args")" = "pi-test bash tvtv-social-check/tools/social-pi-check.sh --quick" ]
+  [ "$(cat "$T/bin/rsync.args")" = "-aR --delete --rsync-path=mkdir -p tvtv-deploy/social-check && rsync Makefile src tools/social-pi-check.sh tools/preview.c \
+tools/gen-visuals.sh tests/dem0-check.c tests/social-check.c tests/mksnap.py tests/dem0-vectors.txt pi-test:tvtv-deploy/social-check/" ]
+  [ "$(cat "$T/bin/ssh.args")" = "pi-test bash tvtv-deploy/social-check/tools/social-pi-check.sh --quick" ]
   # the copy is the parts, src whole and nothing else from the tree
-  run bash -c 'cd "$1/tvtv-social-check" && find . -type f ! -path "./src/*" | LC_ALL=C sort' _ "$T/pi"
+  run bash -c 'cd "$1/tvtv-deploy/social-check" && find . -type f ! -path "./src/*" | LC_ALL=C sort' _ "$T/pi"
   [ "$output" = "$(printf './%s\n' Makefile tests/dem0-check.c tests/dem0-vectors.txt tests/mksnap.py \
     tests/social-check.c tools/gen-visuals.sh tools/preview.c tools/social-pi-check.sh)" ]
-  diff -r src "$T/pi/tvtv-social-check/src"
+  diff -r src "$T/pi/tvtv-deploy/social-check/src"
   # a file gone from src goes there too, at the next run
-  touch "$T/pi/tvtv-social-check/src/gone.c"
-  run env PATH="$T/bin:$PATH" BC101_HOST=pi-test scripts/social-check.sh -n
+  touch "$T/pi/tvtv-deploy/social-check/src/gone.c"
+  run env PATH="$T/bin:$PATH" TVTV_DEPLOY_HOST=pi-test scripts/social-check.sh -n
   [[ $output == *"deleting   src/gone.c"* ]]
 }
 
-@test "scripts/social-check.sh -n: the host from the settings, what rsync would copy, nothing copied, nothing run" {
+@test "scripts/social-check.sh -n: the host from the settings (its old name too), what rsync would copy, nothing copied, nothing run" {
   fake_pi "$T/bin3" "$T/pi3"
   printf 'BC101_HOST=pi-from-env   # the deploying login\n' > "$T/settings3"
   run env PATH="$T/bin3:$PATH" TVTV_ENV="$T/settings3" scripts/social-check.sh -n
   [ "$status" -eq 0 ]
   [[ $output == *"tools/social-pi-check.sh"* && $output == *"src/dem0.c"* && $output == *"tests/mksnap.py"* ]]
-  [[ $(cat "$T/bin3/rsync.args") == "-aniR --delete "*" pi-from-env:tvtv-social-check/" ]]
+  [[ $output == *"note: BC101_HOST is now TVTV_DEPLOY_HOST"* ]]
+  [[ $(cat "$T/bin3/rsync.args") == "-aniR --delete "*" pi-from-env:tvtv-deploy/social-check/" ]]
   [ ! -e "$T/bin3/ssh.args" ]
-  [ ! -e "$T/pi3/tvtv-social-check" ]
+  [ ! -e "$T/pi3/tvtv-deploy/social-check" ]
 }
 
-@test "scripts/social-check.sh without BC101_HOST says where to set it, copies nothing, runs nothing" {
+@test "scripts/social-check.sh without TVTV_DEPLOY_HOST says where to set it, copies nothing, runs nothing" {
   fake_pi "$T/bin4" "$T/pi4"
   run env PATH="$T/bin4:$PATH" scripts/social-check.sh --quick
   [ "$status" -eq 2 ]
-  [[ $output == *"BC101_HOST"*".env.example"* ]]
+  [[ $output == *"TVTV_DEPLOY_HOST"*".env.example"* ]]
   [ ! -e "$T/bin4/rsync.args" ]
   [ ! -e "$T/bin4/ssh.args" ]
 }
@@ -156,7 +157,7 @@ tools/gen-visuals.sh tests/dem0-check.c tests/social-check.c tests/mksnap.py tes
   run cmp -s tests/dem0-vectors.txt "$T/tree/tests/dem0-vectors.txt" # "! cmp" would not fail a bats test
   [ "$status" -eq 1 ]
   fake_pi "$T/bin2" "$T/pi2"
-  run env PATH="$T/bin2:$PATH" BC101_HOST=pi-test TMPDIR="$T/tmp" "$T/tree/scripts/social-check.sh" --quick
+  run env PATH="$T/bin2:$PATH" TVTV_DEPLOY_HOST=pi-test TMPDIR="$T/tmp" "$T/tree/scripts/social-check.sh" --quick
   echo "$output"
   [ "$status" -eq 1 ]
   [[ $output == *$'\n'"FAIL  dem0 vectors, the bridge's: 1 failures, in ftz_chain (flush-to-zero is wrong"* ]]

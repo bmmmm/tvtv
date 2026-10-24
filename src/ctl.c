@@ -21,7 +21,7 @@ const char *ctl_default_path(void) {
         snprintf(path, sizeof path, "%s/ctl", rt);
         return path;
     }
-    return "/run/bc101/ctl";
+    return "/run/tvtv-show.sock";
 }
 
 static int set_addr(struct sockaddr_un *sa, const char *path) {

@@ -99,7 +99,7 @@ That is the whole interface. `init()` runs once when the scene starts and precom
 
 The sequencer in `main.c` is a loop with four steps: the scene draws into the canvas, the fade scales the picture at the start and end of a scene, the blit copies the canvas into the framebuffer, and a sleep waits for the next 20 ms tick. The tick is an absolute time, not a relative delay: the program computes when the next frame is due and sleeps until then with `clock_nanosleep` and `TIMER_ABSTIME`, so a frame that finishes early does not drift the schedule. A frame that finishes late is followed by the next one immediately, and only when the program falls more than 100 ms behind does it give up and restart the schedule from now. The time step handed to a scene is capped at 50 ms, so a hiccup never makes a particle jump across the screen.
 
-Every scene gets a line in `/run/bc101/anim.log` when it ends: its average frame rate and its worst frame in milliseconds. Those two numbers are the whole performance story of the show, and chapter 5 is about them.
+Every scene gets a line in `/run/tvtv-show/anim.log` when it ends: its average frame rate and its worst frame in milliseconds. Those two numbers are the whole performance story of the show, and chapter 5 is about them.
 
 ### One pixel becomes two
 
@@ -176,7 +176,7 @@ The first is the log the sequencer writes on the Pi: average frames per second a
 The second instrument is `build/preview ... bench`, which renders a given number of frames off-line and reports the average and the worst. On a workstation its numbers say nothing about the Pi, they are 20 to 50 times smaller, but as a ratio between two versions of a scene they say everything: if a change doubles the frame time on the Mac, it doubles it on the Pi too.
 
 <!-- A table with every scene's fps and worst frame from a full run of the show on the Pi
-     goes here (cat /run/bc101/anim.log after one loop). -->
+     goes here (cat /run/tvtv-show/anim.log after one loop). -->
 
 Two more numbers describe the program. The whole thing is about 2,500 lines of C that compile to a 95 KB executable linked against nothing but the C library, the maths library and the Pi's memory routines. A full build takes a little over a minute on the Pi 1; touching one scene rebuilds in about six seconds, because `make` only recompiles what changed.
 

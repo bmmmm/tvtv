@@ -7,7 +7,7 @@
 //   bc101 remote [-s socket] [--admin] [--name who] [--frame]  the zapper
 // (ctl and remote are also the standalone client tvctl, see tvctl.c, which carries no scene code)
 // -x renders without a framebuffer (for tests on any Linux box), -s sets the socket path
-// (under systemd: the socket bc101.socket passes, else $RUNTIME_DIRECTORY/ctl). Fonts and slides are looked up next to the
+// (under systemd: the socket tvtv-show.socket passes, else $RUNTIME_DIRECTORY/ctl). Fonts and slides are looked up next to the
 // executable (fonts/, slides/).
 //
 // Commands: status | list | log | ping | next | auto | tune <ch|name> | hold <ch|name> |
@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
         close(fd);
     }
 
-    // Where the remote connects: the socket bc101.socket holds open (so a remote command can start
+    // Where the remote connects: the socket tvtv-show.socket holds open (so a remote command can start
     // the show), else our own. No socket when not under systemd and none was asked for.
     int lfd = ctl_inherited();
     if (lfd >= 0) sock = NULL; // systemd's to keep: not unlinked at exit

@@ -68,30 +68,33 @@ systemd-Sandbox: kein Netz, schreibgeschütztes Dateisystem, nur Framebuffer und
 
 ```sh
 scripts/deploy.sh -n   # Probelauf: Dateiänderungen und der Diff der Unit
-scripts/deploy.sh      # rsync, make (inkrementell), bc101.service neu starten
+scripts/deploy.sh      # rsync, make (inkrementell), tvtv-show.service neu starten
 ```
 
-`BC101_HOST` benennt den SSH-Host des Deploy-Logins; er steht in `.env` (eine Kopie von
+`TVTV_DEPLOY_HOST` benennt den SSH-Host des Deploy-Logins; er steht in `.env` (eine Kopie von
 `.env.example`, git ignoriert `.env`) oder in der Umgebung. Die Dateien landen dort in
 `/opt/tvtv`. Deploy schlägt fehl, wenn die Show nach dem Neustart nicht 3 s durchhält. Ein
 voller Build dauert auf dem Pi 1 über eine Minute; eine geänderte Szene ist in etwa 6 s gebaut.
+Wohin auf dem Pi was gehört, für tvtv und die anderen Projekte dort (dem02socialTV), und was sich
+gegenüber `bc101.service` geändert hat: [docs/pi.md](docs/pi.md) (englisch).
 
 **Im Alltag.**
 
 ```sh
-sudo systemctl stop|start|restart bc101                  # die Show in Schleife (stop: die Fernbedienung weckt sie)
-sudo systemctl stop|start bc101.socket                   # Stecker ziehen | einstecken: aus bis zum Start
-~/tvtv/bc101 -l                                          # Szenen auflisten
-sudo openvt -c 1 -s -f -- ~/tvtv/bc101 juggle fire       # gewählte Szenen spielen
-sudo openvt -c 1 -s -f -- ~/tvtv/bc101 -t 120 explain    # nach 120 s beenden
-cat /run/bc101/anim.log                                  # mittlere fps und schlechtestes Bild je Szene (/tmp bei Handstart)
+sudo systemctl stop|start|restart tvtv-show               # die Show in Schleife (stop: die Fernbedienung weckt sie)
+sudo systemctl stop|start tvtv-show.socket                # Stecker ziehen | einstecken: aus bis zum Start
+/opt/tvtv/bc101 -l                                        # Szenen auflisten
+sudo openvt -c 1 -s -f -- /opt/tvtv/bc101 juggle fire     # gewählte Szenen spielen
+sudo openvt -c 1 -s -f -- /opt/tvtv/bc101 -t 120 explain  # nach 120 s beenden
+cat /run/tvtv-show/anim.log                               # mittlere fps und schlechtestes Bild je Szene (/tmp bei Handstart)
+sudo tvtv-pi status | du | check                          # alle Projekte auf dem Pi: Versionen, Platz, Ordnung (docs/pi.md)
 ```
 
-Vor dem Starten von Hand `bc101.socket` stoppen, sonst malen beide auf tty1: Nach einem Stopp
-von `bc101` allein schaltet jeder Befehl der Fernbedienung die Show wieder ein, und ein offener
+Vor dem Starten von Hand `tvtv-show.socket` stoppen, sonst malen beide auf tty1: Nach einem Stopp
+von `tvtv-show` allein schaltet jeder Befehl der Fernbedienung die Show wieder ein, und ein offener
 Zapper fragt zweimal pro Sekunde. `explain`
 (Making-of), `stack` (Technik im Detail) und `testcard` gehören nicht zur Standardschleife.
-Langsamer Boot? `sudo ~/tvtv/tools/boot-report.sh` schreibt Zeiten und Netzwerk-Logs in ein
+Langsamer Boot? `sudo /opt/tvtv/tools/boot-report.sh` schreibt Zeiten und Netzwerk-Logs in ein
 frisches `/tmp/boot-report.XXXXXX` und nennt den Namen (passwortartige Werte geschwärzt).
 
 ## Fernbedienung
@@ -200,9 +203,10 @@ src/scenes/*.c        eine Datei je Szene (pixel, dem0, text: die Social-Kanäle
 slides/*.txt          deutscher Text der Folien-Decks (Daten, kein Code)
 system/               systemd-Unit-Vorlage (Sandbox) und das sshd-Drop-in für den Nutzer zapper
 tools/install.sh      auf dem Pi: make, neu starten, prüfen
-tools/setup-remote.sh auf dem Pi, einmalig: Nutzer zapper, /opt/tvtv, Dispatcher, Schlüsseldatei, sshd
+tools/setup-remote.sh auf dem Pi, einmalig: Nutzer zapper, /opt/tvtv, Dispatcher, Schlüsseldatei, sshd, die Ordnung (docs/pi.md)
 tools/tv-dispatch     was `ssh zapper` ausführt: Befehle, der Zapper, Uploads mit Rollback
 tools/tv-keys.sh      auf dem Pi: Schlüssel und Rollen für die Fernbedienung
+tools/tvtv-pi.sh      auf dem Pi: Status, Platz, Ordnung und Aufräumen aller Projekte dort (docs/pi.md)
 tools/social-pi-check.sh  auf dem Pi: VM und Leser der Social-Kanäle auf dem Gerät, Bench, Budget
 tools/gen-visuals.sh  erzeugt build/visuals.c, die Tabelle der hochgeladenen Visuals
 tools/boot-report.sh  auf dem Pi: Boot-Zeiten und Netzwerk-Logs

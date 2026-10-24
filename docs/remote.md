@@ -39,10 +39,10 @@ number does), **once** shows a channel one time and returns to the loop (`play`)
 goes through the normal fade.
 
 The remote always switches the show on, as on a TV set: systemd holds the control socket open
-(`bc101.socket`), and the first command that arrives starts the show if it is off. So
-`systemctl stop bc101` switches it off only until the next command, and an open zapper asks
-twice a second. `systemctl stop bc101.socket` unplugs it: the show goes off with it and the
-remote answers `show not reachable` until `systemctl start bc101.socket`. That is the way for
+(`tvtv-show.socket`), and the first command that arrives starts the show if it is off. So
+`systemctl stop tvtv-show` switches it off only until the next command, and an open zapper asks
+twice a second. `systemctl stop tvtv-show.socket` unplugs it: the show goes off with it and the
+remote answers `show not reachable` until `systemctl start tvtv-show.socket`. That is the way for
 maintenance, or for anything else that wants the framebuffer and tty1. An upload or `rm` while
 the show is off builds the new binary and leaves the show off. `px`, `text` and `social` go to
 the social bridge, not to the show: they do not switch it on.
@@ -70,7 +70,7 @@ the social bridge, not to the show: they do not switch it on.
 | `↑` `↓` `+` `-` | zap through the channels |
 | `Enter`, `Space` | hold this channel; again: back to auto |
 | `n` / `a` | next / auto |
-| `i` | fps per channel (what `/run/bc101/anim.log` holds) |
+| `i` | fps per channel (what `/run/tvtv-show/anim.log` holds) |
 | `x` | delete the visual on air (admin, asks first) |
 | `u` / `?` / `q` | upload hint / help / quit |
 
@@ -84,7 +84,7 @@ Three accounts take part on the Pi, and keeping them apart is most of the setup:
 | Login | Who | Rights |
 |---|---|---|
 | your own | a person | sudo with a password; needed once, for the setup |
-| `deploy` (any name; `BC101_HOST` in `.env` points at it) | the deploy automation (`scripts/deploy.sh`, `tv-keys`) | exact sudo rules, no password; written by the setup |
+| `deploy` (any name; `TVTV_DEPLOY_HOST` in `.env` points at it) | the deploy automation (`scripts/deploy.sh`, `tv-keys`) | exact sudo rules, no password; written by the setup |
 | `zapper` | the remote | no shell, the dispatcher only, keys only |
 
 The setup needs root once, and only a person has that: the deploying login has no password and
@@ -93,28 +93,30 @@ no sudo for arbitrary commands, so the root step cannot run over a plain `ssh`. 
 ```sh
 scripts/deploy.sh --setup        # 1. workstation: syncs a copy and prints the command below
 ssh you@<the pi>                 # 2. the Pi, as yourself:
-sudo ~deploy/tvtv-setup/tools/setup-remote.sh --deployer deploy
+sudo ~deploy/tvtv-deploy/show-setup/tools/setup-remote.sh --deployer deploy
 ```
 
-`BC101_SETUP_HOST=you@<the pi> scripts/deploy.sh --setup` does both in one go, with sudo
+`TVTV_SETUP_HOST=you@<the pi> scripts/deploy.sh --setup` does both in one go, with sudo
 asking for your password in the terminal. `tools/setup-remote.sh` is idempotent, run as root,
 and does this: creates the system user `zapper` (groups `video`, `tty`; `TVTV_USER` picks
 another name, and a name that belongs to a person is refused, because the sshd rule below
 would lock that person into the dispatcher), moves the show to `/opt/tvtv` owned by `zapper`,
 installs the dispatcher as `/usr/local/lib/tvtv/tv-dispatch`, `tv-keys`, the empty keys file
 `/etc/tvtv/authorized_keys`, the sshd drop-in `system/sshd-tv.conf` (checked with `sshd -t`,
-then reloaded) and the systemd units `bc101.service` and `bc101.socket`, writes
-`/etc/sudoers.d/tvtv-deploy` for the deploying login (`rsync` and `make` as `zapper`, the two
-unit files from stdin, `systemctl` for the service and its socket, `tv-keys`, mounting and
-unmounting the USB stick `/dev/sda1` on `/mnt` by hand), adds the stick to `/etc/fstab` as an
-automount (see Doom below), and runs `tools/install.sh` (build as `zapper`, restart, health
-check). From then on plain `scripts/deploy.sh` targets `/opt/tvtv` without prompts. A change to
+then reloaded) and the systemd units `tvtv-show.service` and `tvtv-show.socket`, writes
+`/etc/sudoers.d/tvtv-show` for the deploying login (`rsync` and `make` as `zapper`, the two
+unit files from stdin, `systemctl` for the service and its socket, `tv-keys`, `tvtv-pi status`,
+`du` and `check`), adds the USB stick to `/etc/fstab` as an automount on `/srv/tvtv`, caps the
+journal and apt's cache, installs `tvtv-pi`, writes the list of all this to
+`/var/lib/tvtv/components/show`, and runs `tools/install.sh` (build as `zapper`, restart, health
+check). Where everything goes, for tvtv and every other project on the Pi, and how a Pi set up
+before moves over: [docs/pi.md](pi.md). From then on plain `scripts/deploy.sh` targets `/opt/tvtv` without prompts. A change to
 `tools/tv-dispatch` reaches `ssh zapper` only through the setup again: sshd runs the root-owned
 copy. The old checkout in the deploying login's home can go.
 
-Run the setup again whenever an update brings a new unit or a new sudo rule (`bc101.socket`
-did): `scripts/deploy.sh -n` then reports a unit as "would be created", and a plain deploy
-stops at the sudo for it before it touches the service file. If your ssh agent holds many keys,
+Run the setup again whenever an update brings a new unit or a new sudo rule (the move to
+`tvtv-show` did): `scripts/deploy.sh -n` then reports a unit as "would be created", and a plain
+deploy says so and stops before it changes anything. If your ssh agent holds many keys,
 sshd may give up before your password is asked; `ssh -o PubkeyAuthentication=no -t you@<the pi>`
 goes straight to the password.
 
@@ -216,7 +218,7 @@ leaves `visuals/` alone.
   else happens; names and numbers are checked against patterns; nothing is passed to a shell.
 - The show runs as `zapper`, not root, inside a systemd sandbox: no network, read-only file system
   including its own directory, only `/dev/fb0` and `/dev/tty1`, no new privileges, a syscall
-  filter (`systemd-analyze security bc101` says 0.8, SAFE). That is the real protection
+  filter (`systemd-analyze security tvtv-show` says 0.8, SAFE). That is the real protection
   behind uploads: a visual is code, and code from an admin key runs as `zapper` with exactly
   those rights.
 - An admin key therefore means: can run code as `zapper` on the Pi. There is nothing else on the
@@ -249,10 +251,11 @@ ssh -t zapper doom freedoom1 e1m3 4     straight into a level (e1m1..e4m9, map01
 ssh zapper doom list                    the games on the USB stick and in /usr/share/games/doom
 ```
 
-A name on both is taken from the stick; only games (IWADs) are listed, not add-ons. The stick
-(vfat, `/dev/sda1`) mounts on `/mnt` when something looks there and unmounts after a minute
-idle, so it can be pulled; the setup writes that line into `/etc/fstab`. Without a stick a
-look at `/mnt` waits up to 2 s for it, so `doom` starts that much later.
+A name on both is taken from the stick; only games (IWADs) are listed, not add-ons. The games
+go into `doom/` on the USB stick (ext4, label `TVTV`), which mounts on `/srv/tvtv` when something
+looks there and unmounts after a minute idle, so it can be pulled; making one:
+[docs/pi.md](pi.md#the-usb-stick). Without a stick a look at `/srv/tvtv` waits up to 2 s for it,
+so `doom` starts that much later.
 
 In the zapper, `d` starts Doom's menu. The picture goes to the TV, the keys come from your
 terminal, so the terminal needs `-t`. The show hands the screen over (`yield`, see
@@ -344,7 +347,7 @@ cd /opt/tvtv && BC101_SOCIAL=/run/tvtv-social/show.bin build/preview dem0 bench 
 ```
 
 The second line is the program's cost, the cells the budget gave it and the VM's time per
-picture; set `BC101_DEM0_BUDGET` in a drop-in for `bc101.service` so that it stays near 10 ms.
+picture; set `BC101_DEM0_BUDGET` in a drop-in for `tvtv-show.service` so that it stays near 10 ms.
 dem0 is float32 to the bit on every machine, without subnormal numbers (flush-to-zero, the
 bridge's docs/dem0.md, section 5): on the Pi the VM runs with the VFP11 in RunFast mode, which
 would otherwise hand each of them to the kernel's support code, a thousand times slower;
@@ -352,7 +355,7 @@ elsewhere the VM flushes step by step. Too slow a program the cells take care of
 
 **The check on the Pi.** Before the channels go on air, prove them where they run, on the real
 VFP11: `scripts/social-check.sh` copies what `tools/social-pi-check.sh` needs to
-`~/tvtv-social-check` on `BC101_HOST` (from `.env`, as for `scripts/deploy.sh`) and runs it there
+`~/tvtv-deploy/social-check` on `TVTV_DEPLOY_HOST` (from `.env`, as for `scripts/deploy.sh`) and runs it there
 (`-n`: what it would copy; in a checkout on the Pi, run the script itself). Any login will do,
 without sudo: it builds as the show is built, in a temporary directory, and only reads the show
 and `/opt/tvtv`; a few minutes on the Pi 1. It runs the VM against the conformance vectors (their
@@ -361,11 +364,11 @@ and the snapshot reader on valid, broken and mutated files: PASS or FAIL each, e
 passed. Then it benches four programs of cost 25 to 400 and suggests the budget that keeps the
 slowest per cost unit at 10 ms of VM time (`--target <ms>`), with the arithmetic. The bench
 shares the core with a running show and says so; for numbers to keep, unplug the show meanwhile
-(`ssh tvtv-deploy sudo systemctl stop bc101.socket`, the deploying login may, and `start bc101`
-after; a stop of `bc101` alone lasts only until the next remote command). The budget goes into a
-drop-in for `bc101.service`, which a deploy leaves alone: as a person with sudo,
-`sudo systemctl edit bc101`, `[Service]` and `Environment=BC101_DEM0_BUDGET=<the suggestion>`,
-then `sudo systemctl restart bc101`.
+(`ssh tvtv-deploy sudo systemctl stop tvtv-show.socket`, the deploying login may, and `start
+tvtv-show` after; a stop of `tvtv-show` alone lasts only until the next remote command). The
+budget goes into a drop-in for `tvtv-show.service`, which a deploy leaves alone: as a person with
+sudo, `sudo systemctl edit tvtv-show`, `[Service]` and `Environment=BC101_DEM0_BUDGET=<the
+suggestion>`, then `sudo systemctl restart tvtv-show`.
 
 **From the remote.** The bridge has a control socket of its own (`/run/tvtv-social.sock`, group
 `zapper`, the show's line protocol, so `tvctl -s` talks to it); the dispatcher checks the key's
