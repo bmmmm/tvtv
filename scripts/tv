@@ -5,6 +5,7 @@
 #   tv 7 | tv next | tv auto | tv status | tv list | tv log | tv tune fire | tv play testcard 30
 #   tv upload foo.c          a new visual (admin key); the channel's name is the file's name
 #   tv rm foo | tv fetch foo > foo.c
+#   tv px 12 30 rot | tv text 2 Hallo | tv social [list | mode ...]   the social channels (24-26)
 #   tv --host 192.0.2.10 status     one call against another address
 #   tv config [host|user|identity [value]]   show or change the settings
 # Where the remote is: --host, else TV_HOST, else host= in the settings file, else zapper (an alias

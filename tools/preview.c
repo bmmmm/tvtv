@@ -9,6 +9,10 @@
 // Fonts default to fonts/ in the current directory. On the Mac: sips -s format png x.bmp --out x.png
 // frames and probe call frame(t) once per time: scenes that build their state frame by frame
 // (stars, flowers, explode, matrix) need seq from 0. The sequencer's fade in and out is not applied.
+// The social channels (pixel, dem0, text) show the snapshot at $BC101_SOCIAL as on the Pi. For
+// dem0, bench also prints the program's cost, the cell size the budget gave it and the VM's time
+// per picture: on the Pi that is how $BC101_DEM0_BUDGET is calibrated (docs/remote.md).
+#include "dem0.h"
 #include "scenes.h"
 
 #include <errno.h>
@@ -153,6 +157,14 @@ int main(int argc, char **argv) {
             if (d > worst) worst = d;
         }
         printf("%-8s avg %6.2f ms  worst %6.2f ms  over %d frames\n", sc->name, total / n * 1e3, worst * 1e3, n);
+        double avg, vworst;
+        int vn;
+        dem0_stats(&avg, &vworst, &vn);
+        if (sc == &scene_dem0 && vn) {
+            int c = dem0_cell();
+            printf("dem0     cost %d, budget %ld: cells %dx%d, %d of them; vm avg %6.2f ms  worst %6.2f ms\n",
+                   dem0_cost(), dem0_budget(), c, c, (W / c) * (H / c), avg, vworst);
+        }
     } else if (!strcmp(mode, "probe") && narg >= 1) {
         for (int k = 0; k < narg; k++) probe(sc, (float)atof(arg[k]));
     } else {

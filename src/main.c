@@ -16,10 +16,17 @@
 // one time and returns to the loop. Every change goes through the normal fade.
 // yield hands the screen to another process of ours (Doom, see tools/tv-dispatch) until it ends;
 // any command that changes the picture takes it back (SIGTERM, SIGKILL after 2 s).
+// The social channels, 24 to 26, show the snapshot of the bridge tvtv-social ($BC101_SOCIAL,
+// default /run/tvtv-social/show.bin, see social.h); the show only reads that file. They close the
+// default loop, and the loop skips each of them unless the snapshot puts it there and it has
+// something to show. When something new arrives and the bridge asks for it, the show plays its
+// channel once, but only from auto, never while another process has the screen, and at most
+// every 20 s.
 #include "core.h"
 #include "ctl.h"
 #include "remote.h"
 #include "scenes.h"
+#include "social.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -37,6 +44,7 @@
 
 #define FADE 0.4f
 #define FRAME 0.02
+#define ANNOUNCE_GAP 20.0 // seconds at least between two announcements
 
 typedef enum { M_AUTO, M_HOLD, M_ONCE } Mode;
 static const char *const mode_name[] = {"auto", "hold", "once"};
@@ -62,6 +70,7 @@ static struct {
     int frames;
     double worst;
     Stat st[CH_MAX + 1]; // per channel, for `log`
+    double announced;    // when the last announcement went on air
 } S;
 
 static volatile sig_atomic_t run = 1;
@@ -80,18 +89,47 @@ static unsigned long self_inode(void) {
     return stat("/proc/self/exe", &st) ? 0 : (unsigned long)st.st_ino;
 }
 
+// The default loop: the loop's scenes, then the social channels.
+static void default_loop(void) {
+    S.nsel = 0;
+    for (int k = 0; k < scene_nloop; k++) S.sel[S.nsel++] = scene_loop[k];
+    for (int k = 0; k < scene_nsocial; k++) S.sel[S.nsel++] = scene_social[k];
+}
+
+// A social channel is in the loop only if the snapshot puts it there and it has something to
+// show: the pixel wall and the text page always (empty, they invite), the programs if there are.
+static int left_out(const Scene *sc) {
+    int ch = scene_channel(sc);
+    if (ch < CH_SOCIAL || ch >= CH_SOCIAL + scene_nsocial) return 0;
+    const Social *so = social_get();
+    if (!so) return 1;
+    if (sc == &scene_pixel) return !(so->flags & SOCIAL_LOOP_PIXEL);
+    if (sc == &scene_dem0) return !(so->flags & SOCIAL_LOOP_DEM0) || !so->nprog;
+    return !(so->flags & SOCIAL_LOOP_TEXT);
+}
+
+// Where the loop goes on from S.li, past what is left out; if that is all of it, the next one
+// anyway (a card for a minute is better than a show that spins).
+static int loop_next(void) {
+    for (int k = 0; k < S.nsel; k++) {
+        int i = (S.li + k) % S.nsel;
+        if (!left_out(S.sel[i])) return i;
+    }
+    return S.li;
+}
+
 static const Scene *pick(void) {
     if (S.mode == M_HOLD) return S.pin;
     if (S.mode == M_ONCE) { S.once_playing = 1; return S.pin; }
-    const Scene *sc = S.sel[S.li];
-    S.li = (S.li + 1) % S.nsel;
-    return sc;
+    int i = loop_next();
+    S.li = (i + 1) % S.nsel;
+    return S.sel[i];
 }
 
 static const Scene *upcoming(void) {
     if (S.mode == M_HOLD) return S.pin;
     if (S.mode == M_ONCE && !S.once_playing) return S.pin;
-    return S.sel[S.li];
+    return S.sel[loop_next()];
 }
 
 static int alive(pid_t pid) { return kill(pid, 0) == 0 || errno == EPERM; }
@@ -115,6 +153,21 @@ static void retune(const Scene *sc, Mode m, float secs) {
     if (!(sc == S.cur && m == M_HOLD)) S.skip = 1;
 }
 
+// Something new on the social channels that the bridge wants announced: its channel, once. Only
+// news from the frame loop in auto counts; what arrives in another mode is not kept for later.
+// Nor is what arrives while another process has the screen: retune would take it back, and a
+// game would end for a post.
+static void announce(void) {
+    SocialNews n;
+    if (!social_announce(&n)) return;
+    if (S.mode != M_AUTO || S.yield) return;
+    if (S.announced > 0 && now() - S.announced < ANNOUNCE_GAP) return;
+    const Scene *sc = n.kind == SOCIAL_KIND_PIXEL ? &scene_pixel : n.kind == SOCIAL_KIND_DEM0 ? &scene_dem0 : &scene_text;
+    if (sc == &scene_dem0) social_cue(n.event);
+    S.announced = now();
+    retune(sc, M_ONCE, (float)n.secs);
+}
+
 static void handle(int cfd, char *req, float t) {
     char out[CTL_MAX_REPLY];
     char *a[4] = {0};
@@ -127,10 +180,14 @@ static void handle(int cfd, char *req, float t) {
     } else if (!strcmp(a[0], "status")) {
         const Scene *nx = upcoming();
         double el = now() - S.s0;
-        snprintf(out, sizeof out,
-                 "ok\nscene=%s ch=%d t=%.1f dur=%.1f mode=%s next=%s nextch=%d fps=%.1f worst=%.1f ino=%lu up=%.0f yield=%d\n",
-                 S.cur->name, scene_channel(S.cur), t, S.dur, mode_name[S.mode], nx->name, scene_channel(nx),
-                 el > 0 ? S.frames / el : 0.0, S.worst * 1000, self_inode(), now() - S.start, (int)S.yield);
+        int l = snprintf(out, sizeof out,
+                         "ok\nscene=%s ch=%d t=%.1f dur=%.1f mode=%s next=%s nextch=%d fps=%.1f worst=%.1f ino=%lu up=%.0f "
+                         "yield=%d",
+                         S.cur->name, scene_channel(S.cur), t, S.dur, mode_name[S.mode], nx->name, scene_channel(nx),
+                         el > 0 ? S.frames / el : 0.0, S.worst * 1000, self_inode(), now() - S.start, (int)S.yield);
+        const Social *so = social_get();
+        if (so) l += snprintf(out + l, sizeof out - (size_t)l, " social=%llu", (unsigned long long)so->seq);
+        snprintf(out + l, sizeof out - (size_t)l, "\n");
     } else if (!strcmp(a[0], "list")) {
         size_t l = (size_t)snprintf(out, sizeof out, "ok\n");
         scene_list_str(out + l, sizeof out - l);
@@ -253,8 +310,7 @@ int main(int argc, char **argv) {
             S.sel[S.nsel++] = sc;
         }
     }
-    if (!S.nsel)
-        for (int k = 0; k < scene_nloop; k++) S.sel[S.nsel++] = scene_loop[k];
+    if (!S.nsel) default_loop();
     if (res) resume(res);
 
     ssize_t sl = readlink("/proc/self/exe", self_path, sizeof self_path - 1);
@@ -337,6 +393,7 @@ int main(int argc, char **argv) {
                     S.yield = 0;
                     S.yield_kill = 0;
                     frames = 0;
+                    social_announce(NULL); // what was new meanwhile is old now
                     break;
                 }
                 if (limit > 0 && now() - S.start > limit) take_back(); // -t ends the show anyway
@@ -358,11 +415,12 @@ int main(int argc, char **argv) {
                 char req[CTL_MAX_REQ];
                 int cfd;
                 for (int k = 0; k < 4 && (cfd = ctl_accept(lfd, req, sizeof req)) >= 0; k++) handle(cfd, req, t);
-                if (S.skip) {
-                    if (t + FADE < dur) dur = t + FADE;
-                    S.dur = dur;
-                    S.skip = 0;
-                }
+            }
+            announce();
+            if (S.skip) {
+                if (t + FADE < dur) dur = t + FADE;
+                S.dur = dur;
+                S.skip = 0;
             }
 
             sc->frame(t, dt);
