@@ -20,10 +20,12 @@ The show has a remote control: `ssh zapper` opens a zapper in your terminal, LED
 all, and members with a key switch channels, hold one, or upload their own visual in C,
 which becomes a channel of its own. See "Remote control" below and [docs/remote.md](docs/remote.md).
 
-Channels 24 to 26 come from Mastodon: a pixel wall that anyone paints with a post
-(`@tvtv px 12 30 rot`), programs in dem0, a tiny language for moving pictures that the show
-computes pixel by pixel (`@tvtv code sin(x/16+t)*40+r*90`), and a page like teletext. A bridge
-of its own collects them; the show only reads the file it writes, and checks every byte of it.
+Channels 24 to 26 come from Mastodon, from posts to
+[@bc101_TV@bonn.social](https://bonn.social/@bc101_TV): a pixel wall that anyone paints with a
+post (`@bc101_TV px 12 30 rot`), programs in dem0, a tiny language for moving pictures that the
+show computes pixel by pixel (`@bc101_TV code sin(x/16+t)*40+r*90`), and a page like teletext. A
+bridge of its own collects them; the show only reads the file it writes, and checks every byte of
+it.
 
 ## Hardware
 
