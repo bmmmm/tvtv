@@ -22,6 +22,12 @@ und allem, und Mitglieder mit Schlüssel schalten Programme um, halten eines fes
 eigenes Visual in C hoch, das zum eigenen Kanal wird. Siehe „Fernbedienung“ unten und
 [docs/remote.md](docs/remote.md) (Englisch).
 
+Die Kanäle 24 bis 26 kommen von Mastodon: eine Pixelwand, die jeder mit einem Post bemalt
+(`@tvtv px 12 30 rot`), Programme in dem0, einer winzigen Sprache für bewegte Bilder, die die Show
+Pixel für Pixel ausrechnet (`@tvtv code sin(x/16+t)*40+r*90`), und eine Seite wie im Videotext.
+Ein eigener Brückendienst sammelt sie ein; die Show liest nur die Datei, die er schreibt, und
+prüft jedes Byte davon.
+
 ## Hardware
 
 | Teil | Detail |
@@ -95,16 +101,18 @@ ssh zapper                    # der Zapper: Ziffern wählen ein Programm, Pfeile
 ssh zapper 7                  # oder ein Befehl: Programm 7, festgehalten
 ssh zapper next | auto | status | list | play testcard 30
 ssh zapper upload foo < foo.c # Admin-Schlüssel: neues Visual, Kanal 30+; rm foo | fetch foo
+ssh zapper px 12 30 rot       # jeder Schlüssel: ein Pixel auf die Pixelwand (24); text 2 Hallo: die Textseite (26)
+ssh zapper social             # Stand des Brückendienstes; social mode | pause | ban ...: Admin-Schlüssel
 ```
 
 Jede Szene hat eine Programmnummer: 00 Standby (schwarz), 01–17 die Schleife, 20–22 die
-Extras, ab 30 die hochgeladenen Visuals. Der Nutzer `zapper` auf dem Pi darf genau ein Programm
-ausführen, den Dispatcher, und das nur mit Schlüssel; Schlüssel gibt es in zwei Rollen
-(`tv-keys add <wer> op|admin`). Ein Upload wird kompiliert, offscreen in voller Länge
-durchgespielt und erst dann eingetauscht; kommt die Show nicht zurück, kehrt der vorherige
-Build zurück. `scripts/tv` kapselt die ssh-Aufrufe, über den Alias oder eigene Einstellungen
-(`tv config`: Host, Nutzer, Schlüssel), `bc101 ctl <befehl>` spricht von der Konsole des Pi
-mit der Show. Einrichtung, Schlüssel, Tastenbelegung und Sicherheitsmodell:
+Extras, 24–26 die Social-Kanäle, ab 30 die hochgeladenen Visuals. Der Nutzer `zapper` auf dem
+Pi darf genau ein Programm ausführen, den Dispatcher, und das nur mit Schlüssel; Schlüssel gibt
+es in zwei Rollen (`tv-keys add <wer> op|admin`). Ein Upload wird kompiliert, offscreen in
+voller Länge durchgespielt und erst dann eingetauscht; kommt die Show nicht zurück, kehrt der
+vorherige Build zurück. `scripts/tv` kapselt die ssh-Aufrufe, über den Alias oder eigene
+Einstellungen (`tv config`: Host, Nutzer, Schlüssel), `bc101 ctl <befehl>` spricht von der
+Konsole des Pi mit der Show. Einrichtung, Schlüssel, Tastenbelegung und Sicherheitsmodell:
 [docs/remote.md](docs/remote.md) (Englisch).
 
 ## Ansehen ohne Pi
@@ -181,12 +189,14 @@ term cpu` (siehe `src/scenes/slides.c`).
 
 ```
 src/core.{c,h}        Canvas (360x288 RGB565), Fonts, Zeichenhilfen
-src/scenes.{c,h}      die Szenentabelle mit Programmnummern: Schleife, Extras, hochgeladene Visuals
+src/scenes.{c,h}      die Szenentabelle mit Programmnummern: Schleife, Extras, Social, hochgeladene Visuals
+src/social.{c,h}      der Schnappschuss der Social-Kanäle: gelesen, Byte für Byte geprüft, der letzte gültige bleibt
+src/dem0.{c,h}        die dem0-VM: prüft den Bytecode eines Programms, rechnet ihn spaltenweise übers Canvas
 src/main.c            Framebuffer-Setup, Szenen-Sequencer, Blenden, fps-Log, Steuerbefehle
 src/ctl.{c,h}         der Steuer-Socket, Serverseite und Client `bc101 ctl`
 src/remote.c          der Zapper, eine Fernbedienung im Terminal
 src/tvctl.c           tvctl: ctl und Zapper als Client ohne Szenencode
-src/scenes/*.c        eine Datei je Szene
+src/scenes/*.c        eine Datei je Szene (pixel, dem0, text: die Social-Kanäle, 24-26)
 slides/*.txt          deutscher Text der Folien-Decks (Daten, kein Code)
 system/               systemd-Unit-Vorlage (Sandbox) und das sshd-Drop-in für den Nutzer zapper
 tools/install.sh      auf dem Pi: make, neu starten, prüfen
@@ -199,7 +209,7 @@ tools/preview.c       Offscreen-Renderer, Benchmark und Bewegungs-Probe
 tools/flipbook.*      ganze Szenen als eigenständiges HTML-Flipbook, Spezifikation je Sprache
 scripts/deploy.sh     auf dem Arbeitsrechner: rsync zum Pi, dann tools/install.sh; --setup einmalig
 scripts/tv            die Fernbedienung vom eigenen Terminal aus (ssh-Wrapper)
-tests/*.bats          Sequencer, Socket, Dispatcher: headless, auf jedem Linux
+tests/*.bats          Sequencer, Socket, Dispatcher, Social-Kanäle: headless, auf jedem Linux
 web/                  die Website: WebAssembly-Shim und Player, Stylesheet, Seiten, site.mk
 docs/                 das Whitepaper (Deutsch und Englisch), remote.md, demo.c
 Makefile              baut bc101 und extrahiert die Konsolenfonts; `make site` für die Website
