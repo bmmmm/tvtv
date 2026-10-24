@@ -203,11 +203,13 @@ tools/install.sh      auf dem Pi: make, neu starten, prüfen
 tools/setup-remote.sh auf dem Pi, einmalig: Nutzer zapper, /opt/tvtv, Dispatcher, Schlüsseldatei, sshd
 tools/tv-dispatch     was `ssh zapper` ausführt: Befehle, der Zapper, Uploads mit Rollback
 tools/tv-keys.sh      auf dem Pi: Schlüssel und Rollen für die Fernbedienung
+tools/social-pi-check.sh  auf dem Pi: VM und Leser der Social-Kanäle auf dem Gerät, Bench, Budget
 tools/gen-visuals.sh  erzeugt build/visuals.c, die Tabelle der hochgeladenen Visuals
 tools/boot-report.sh  auf dem Pi: Boot-Zeiten und Netzwerk-Logs
 tools/preview.c       Offscreen-Renderer, Benchmark und Bewegungs-Probe
 tools/flipbook.*      ganze Szenen als eigenständiges HTML-Flipbook, Spezifikation je Sprache
 scripts/deploy.sh     auf dem Arbeitsrechner: rsync zum Pi, dann tools/install.sh; --setup einmalig
+scripts/social-check.sh  auf dem Arbeitsrechner: kopiert, was tools/social-pi-check.sh braucht, zum Pi und startet es
 scripts/tv            die Fernbedienung vom eigenen Terminal aus (ssh-Wrapper)
 tests/*.bats          Sequencer, Socket, Dispatcher, Social-Kanäle: headless, auf jedem Linux
 web/                  die Website: WebAssembly-Shim und Player, Stylesheet, Seiten, site.mk

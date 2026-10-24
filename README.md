@@ -199,11 +199,13 @@ tools/install.sh      on the Pi: make, restart, check it stays up
 tools/setup-remote.sh on the Pi, once: user zapper, /opt/tvtv, dispatcher, keys file, sshd
 tools/tv-dispatch     what `ssh zapper` runs: commands, the zapper, uploads with rollback
 tools/tv-keys.sh      on the Pi: keys and roles for the remote
+tools/social-pi-check.sh  on the Pi: the social channels' VM and reader on the device, a bench, the budget
 tools/gen-visuals.sh  generates build/visuals.c, the table of uploaded visuals
 tools/boot-report.sh  on the Pi: boot timing and network logs
 tools/preview.c       offscreen renderer, benchmark and motion probe
 tools/flipbook.*      whole scenes as a self-contained HTML flipbook, spec per language
 scripts/deploy.sh     on the workstation: rsync to the Pi, then tools/install.sh; --setup once
+scripts/social-check.sh  on the workstation: copies tools/social-pi-check.sh's parts to the Pi, runs it
 scripts/tv            the remote from your own terminal (ssh wrapper)
 tests/*.bats          sequencer, socket, dispatcher, social channels: headless, on any Linux box
 web/                  the website: WebAssembly shim and player, stylesheet, pages, site.mk

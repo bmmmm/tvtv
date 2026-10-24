@@ -350,6 +350,23 @@ bridge's docs/dem0.md, section 5): on the Pi the VM runs with the VFP11 in RunFa
 would otherwise hand each of them to the kernel's support code, a thousand times slower;
 elsewhere the VM flushes step by step. Too slow a program the cells take care of all the same.
 
+**The check on the Pi.** Before the channels go on air, prove them where they run, on the real
+VFP11: `scripts/social-check.sh` copies what `tools/social-pi-check.sh` needs to
+`~/tvtv-social-check` on `BC101_HOST` (from `.env`, as for `scripts/deploy.sh`) and runs it there
+(`-n`: what it would copy; in a checkout on the Pi, run the script itself). Any login will do,
+without sudo: it builds as the show is built, in a temporary directory, and only reads the show
+and `/opt/tvtv`; a few minutes on the Pi 1. It runs the VM against the conformance vectors (their
+`ftz_*` programs pass only if flush-to-zero is right), on random programs and through its pacing,
+and the snapshot reader on valid, broken and mutated files: PASS or FAIL each, exit 0 only if all
+passed. Then it benches four programs of cost 25 to 400 and suggests the budget that keeps the
+slowest per cost unit at 10 ms of VM time (`--target <ms>`), with the arithmetic. The bench
+shares the core with a running show and says so; for numbers to keep, unplug the show meanwhile
+(`ssh tvtv-deploy sudo systemctl stop bc101.socket`, the deploying login may, and `start bc101`
+after; a stop of `bc101` alone lasts only until the next remote command). The budget goes into a
+drop-in for `bc101.service`, which a deploy leaves alone: as a person with sudo,
+`sudo systemctl edit bc101`, `[Service]` and `Environment=BC101_DEM0_BUDGET=<the suggestion>`,
+then `sudo systemctl restart bc101`.
+
 **From the remote.** The bridge has a control socket of its own (`/run/tvtv-social.sock`, group
 `zapper`, the show's line protocol, so `tvctl -s` talks to it); the dispatcher checks the key's
 role before anything goes there (`TVTV_SOCIAL_SOCK` points it at another socket):
@@ -391,4 +408,5 @@ copied from its `testdata/` (regenerated there with `go test ./internal/dem0 -ru
 fuzzing), the pictures through `build/preview`, and the loop, the card and the announcements in
 a headless show, also while another process has the screen; `tests/dispatch.bats` runs the
 dispatcher's `social`, `px` and `text` against `tests/fake-social.py`, a stand-in for the
-bridge's socket.
+bridge's socket; `tests/social-pi-check.bats` runs `tools/social-pi-check.sh --quick` on this
+box and `scripts/social-check.sh` against a stand-in ssh and rsync.
