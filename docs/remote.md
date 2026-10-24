@@ -44,7 +44,7 @@ the show is off builds the new binary and leaves the show off.
 ## The zapper
 
 ```
-  tvtv ▸ ZAPPER  · alice (admin)                                      ● 13:37:05
+  tvtv ▸ ZAPPER  · alice (admin)                                    ● 13:37:05
 
   █▀▀█ ▀▀▀█   PLASMA  loop               HOLD   bis n oder Enter
   █  █    █   ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░   2.8 s / 10 s
