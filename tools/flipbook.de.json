@@ -5,7 +5,7 @@
   "eyebrow": "bc101 · Raspberry Pi 1 · 360 × 288 · PAL 50 Hz",
   "lede": "Vier Szenen der Show, aus dem Quellcode gerendert, Bild für Bild. Jedes Bild ist das echte Canvas der Szene, hier verdoppelt wie auf dem Fernseher. Abspielen, scrubben, langsamer stellen.",
   "footer": "created with ♥ in bitcircus101 · assisted by AI",
-  "credits": "Gerendert mit build/preview und tools/flipbook.py. Keine Bilddatei liegt im Repo, auch hier nicht: alles kommt aus dem Code.",
+  "credits": "Gerendert mit build/preview und tools/flipbook.py. Die Bilder der Show kommen aus dem Code.",
   "nav": [
     {
       "href": "index.de.html",

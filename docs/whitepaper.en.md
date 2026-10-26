@@ -27,7 +27,7 @@ margin:
 
 ## In brief
 
-- The old tube TV at bitcircus101 shows a demoscene show computed live on a Raspberry Pi 1 from 2012: 17 scenes and two slide decks, 50 frames per second on one 700 MHz core, no help from a GPU, no image files anywhere.
+- The old tube TV at bitcircus101 shows a demoscene show computed live on a Raspberry Pi 1 from 2012: 17 scenes and two slide decks, 50 frames per second on one 700 MHz core, no help from a GPU, no image files in the show.
 - The hard part was not the effects but the video path: PAL instead of NTSC, 288 progressive lines instead of interlace flicker, and an overscan measured with a test card.
 - The whole thing is one C program: a 360 × 288 canvas in 16-bit colour, double-buffered into the Linux framebuffer with every pixel doubled on the way, a sequencer with cross-fades, and scenes that are files with two functions, `init()` and `frame(t)`.
 - Measured, not guessed: the sequencer logs the frame rate and the worst frame of every scene on the Pi, and a bench tool does the same off-line.
@@ -41,7 +41,7 @@ bitcircus101 is a tech and creative space in Bonn. Somewhere in it stands an old
 
 The idea was simple and a little stubborn: the TV should show something alive, and everything it shows should come from code. No video file, no slideshow of PNGs, no browser kiosk. A C program computes every pixel in real time and writes it into the framebuffer, the way a demo did on a home computer in the 1990s. Seventeen scenes loop forever: plasma, a tunnel, fire, a juggling clown, flower power, a synthwave horizon, a cathode ray tube in 3D that explains itself, Bernd das Brot bouncing like the DVD logo. Two slide decks, in German, explain how it all works, with live demos at the bottom of every slide.
 
-The stubborn part is the rule that nothing is an image. The flipbook on the website, the figures in this paper, the show in the browser: all of it is rendered from the same source code at build time. If a scene changes, every picture of it changes with it.
+The stubborn part is the rule that the show needs no image files. The flipbook on the website, the scene figures in this paper and the show in the browser are rendered from the same source code. Change a scene, and every picture of it changes with it. The social extension's avatar concepts shown later are separate graphics for the documentation.
 
 ![The show in the browser: the same C code, compiled to WebAssembly, stepped at 50 frames per second like the Pi.](img/outrun.png){width=82%}
 
@@ -234,6 +234,14 @@ The vendored engine brought two surprises from its embedded past. Its keyboard c
 
 Doom also changes what a key means. Until now an op key could only zap; now any key starts an engine from 1993, written for trusted data, outside the show's sandbox, with keystrokes and a WAD that key chooses. That is as far as it reaches: the rights of `zapper`, the same as an admin key's visual.
 
+### A profile for the social extension
+
+The companion project **dem02socialTV** connects Fediverse posts to the tube: mentioning `@bc101_TV@bonn.social` can submit a pixel, a small dem0 program or a line of teletext. Three avatar concepts offer different looks for its profile: “Röhre” with a rainbow spiral, “Einwurf” with a message made of colourful pixels, and “Videotext” with text lines and RGB blocks. They were created with AI and remain proposals; the existing profile picture is computed from a dem0 program. A simplified, animated dem0 version of the Einwurf design can run on the tube itself.
+
+![Röhre: a brown television with a rainbow spiral.](img/social-roehre.png){width=28%} ![Einwurf: a speech bubble and colourful pixels in front of a blue television.](img/social-einwurf.png){width=28%} ![Videotext: a light-coloured television with text lines and RGB blocks.](img/social-videotext.png){width=28%}
+
+*Three avatar concepts for tvtv social: Röhre, Einwurf and Videotext.*
+
 ## 8. Making-of with an AI
 
 The show was programmed by an AI model, working over SSH from a Mac. It never saw the TV. A human in the space did: reported the black and white picture, the flicker, read the numbers off the test card, and said when something looked wrong. Everything else, the C code, the tools, the slides, the scripts, came out of that conversation.
@@ -246,7 +254,7 @@ Three things made this work, and they are the same three that make any remote gr
 
 **One repository, plain files, small tools.** Scenes are files with two functions. Slides are text. The flipbook spec is JSON. The tools are a C program and a Python script with no dependencies. Nothing here needs explaining twice, which matters when the collaborator forgets everything between sessions and reads the repository instead of remembering.
 
-What this is not: a claim that the pictures are new. Plasma, tunnels, fire and particles are the demoscene's common inheritance, and the show says so on its own slides. What is new, or at least rare, is the combination: a 2012 single-core board driving a television in a form that does not flicker, a show that explains itself while it runs, a build in which no image file exists anywhere, and a toolchain that lets a programmer who cannot see the screen ship pictures to it with confidence.
+What this is not: a claim that the pictures are new. Plasma, tunnels, fire and particles are the demoscene's common inheritance, and the show says so on its own slides. What is new, or at least rare, is the combination: a 2012 single-core board driving a television in a form that does not flicker, a show that explains itself while it runs, scene pictures made without image-file templates, and a toolchain that lets a programmer who cannot see the screen ship pictures to it with confidence.
 
 ## 9. Licences and thanks
 

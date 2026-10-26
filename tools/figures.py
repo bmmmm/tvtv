@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Render the whitepaper's figures with build/preview: one PNG per (scene, time), 720x576 as the
 TV shows them. Every scene is played from 0 to its time so that state built frame by frame
-(stars, flowers, explode, matrix) is right. No image file lives in the repository; this is
-where they come from at build time.
+(stars, flowers, explode, matrix) is right. The scene figures are generated here at build time;
+the separate social avatar concepts in docs/img are documentation assets.
 
 Usage (after `make preview`):  python3 tools/figures.py <outdir>
 """

@@ -14,8 +14,9 @@ BASE   := https://bmmmm.github.io/tvtv
 WEB_SRCS    := src/core.c src/scenes.c src/social.c src/dem0.c $(wildcard src/scenes/*.c) build/visuals.c web/shim.c
 WEB_EXPORTS := _web_init,_web_w,_web_h,_web_scene_count,_web_loop_count,_web_scene_name,_web_scene_dur,_web_start,_web_current,_web_time,_web_length,_web_step
 PAGES := index.html index.de.html whitepaper.html whitepaper.de.html flipbook.html flipbook.de.html
+SOCIAL_AVATARS := $(addprefix $(SITE)/img/,social-roehre.png social-einwurf.png social-videotext.png)
 SITE_FILES := $(addprefix $(SITE)/,$(PAGES) 404.html whitepaper.en.pdf whitepaper.de.pdf bc101.js \
-              player.js style.css favicon.svg robots.txt sitemap.xml img/.stamp)
+              player.js style.css favicon.svg robots.txt sitemap.xml img/.stamp) $(SOCIAL_AVATARS)
 
 site: $(SITE_FILES)
 
@@ -28,18 +29,23 @@ $(SITE)/index.de.html: web/index.de.md web/template.html web/site.mk | $(SITE)
 	$(call page,$<,$@)
 $(SITE)/404.html: web/404.md web/template.html web/site.mk | $(SITE)
 	$(call page,$<,$@)
-$(SITE)/whitepaper.html: docs/whitepaper.en.md web/template.html web/site.mk $(SITE)/img/.stamp | $(SITE)
+$(SITE)/whitepaper.html: docs/whitepaper.en.md web/template.html web/site.mk $(SITE)/img/.stamp $(SOCIAL_AVATARS) | $(SITE)
 	$(call page,$<,$@)
-$(SITE)/whitepaper.de.html: docs/whitepaper.de.md web/template.html web/site.mk $(SITE)/img/.stamp | $(SITE)
+$(SITE)/whitepaper.de.html: docs/whitepaper.de.md web/template.html web/site.mk $(SITE)/img/.stamp $(SOCIAL_AVATARS) | $(SITE)
 	$(call page,$<,$@)
-$(SITE)/whitepaper.en.pdf: docs/whitepaper.en.md web/site.mk $(SITE)/img/.stamp | $(SITE)
+$(SITE)/whitepaper.en.pdf: docs/whitepaper.en.md web/site.mk $(SITE)/img/.stamp $(SOCIAL_AVATARS) | $(SITE)
 	$(PANDOC) $< -f markdown-smart --pdf-engine=typst --resource-path=$(SITE) -o $@
-$(SITE)/whitepaper.de.pdf: docs/whitepaper.de.md web/site.mk $(SITE)/img/.stamp | $(SITE)
+$(SITE)/whitepaper.de.pdf: docs/whitepaper.de.md web/site.mk $(SITE)/img/.stamp $(SOCIAL_AVATARS) | $(SITE)
 	$(PANDOC) $< -f markdown-smart --pdf-engine=typst --resource-path=$(SITE) -o $@
 
 # The whitepaper's figures, rendered from the scenes (tools/figures.py lists them).
 $(SITE)/img/.stamp: tools/figures.py tools/flipbook.py build/preview | $(SITE)
 	python3 tools/figures.py $(SITE)/img && touch $@
+
+# The social avatar concepts are documentation assets, not rendered show scenes.
+$(SOCIAL_AVATARS): $(SITE)/img/%: docs/img/% | $(SITE)
+	@mkdir -p $(dir $@)
+	cp $< $@
 
 # The scenes as WebAssembly; fonts and slides travel inside the module. Needs fonts/*.psf,
 # which `make` extracts on Debian/Ubuntu (console-setup) and the README explains for the Mac.

@@ -5,7 +5,7 @@
   "eyebrow": "bc101 · Raspberry Pi 1 · 360 × 288 · PAL 50 Hz",
   "lede": "Four scenes of the show, rendered from the source code frame by frame. Every picture is the scene's real canvas, doubled here like on the TV. Play, scrub, slow it down.",
   "footer": "created with ♥ in bitcircus101 · assisted by AI",
-  "credits": "Rendered with build/preview and tools/flipbook.py. There is no image file in the repository, not even here: everything comes from the code.",
+  "credits": "Rendered with build/preview and tools/flipbook.py. The show's pictures come from code.",
   "nav": [
     {
       "href": "index.html",

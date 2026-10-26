@@ -41,7 +41,7 @@ bitcircus101 ist ein Technik- und Kreativraum in Bonn. Irgendwo darin steht ein 
 
 Die Idee war einfach und ein bisschen stur: Der Fernseher soll etwas Lebendiges zeigen, und alles, was er zeigt, soll aus Code kommen. Keine Videodatei, keine Diaschau aus PNGs, kein Browser-Kiosk. Ein C-Programm berechnet jedes Pixel in Echtzeit und schreibt es in den Framebuffer, so wie es eine Demo auf einem Heimcomputer der 90er tat. Siebzehn Szenen laufen in Schleife: Plasma, ein Tunnel, Feuer, ein jonglierender Clown, Flower Power, ein Synthwave-Horizont, eine Bildröhre in 3D, die sich selbst erklärt, Bernd das Brot, das wie das DVD-Logo durchs Bild springt. Zwei Folien-Decks erklären, wie alles funktioniert, mit Live-Demos am unteren Rand jeder Folie.
 
-Der sture Teil ist die Regel, dass nichts ein Bild ist. Das Flipbook auf der Website, die Abbildungen in diesem Text, die Show im Browser: Alles wird beim Bauen aus demselben Quellcode gerendert. Ändert sich eine Szene, ändert sich jedes Bild von ihr mit.
+Der sture Teil ist die Regel, dass die Show keine Bilddateien braucht. Das Flipbook auf der Website, die Szenenabbildungen in diesem Text und die Show im Browser werden aus demselben Quellcode gerendert. Ändert sich eine Szene, ändert sich jedes Bild von ihr mit. Die später vorgestellten Profilbildentwürfe der Social-Erweiterung sind eigene Grafiken für die Dokumentation.
 
 ![Die Show im Browser: derselbe C-Code, übersetzt nach WebAssembly, mit 50 Schritten pro Sekunde wie auf dem Pi.](img/outrun.png){width=82%}
 
@@ -234,6 +234,14 @@ Die mitgelieferte Engine brachte zwei Überraschungen aus ihrer Vergangenheit au
 
 Doom ändert auch, was ein Schlüssel bedeutet. Bisher konnte ein op-Schlüssel nur zappen; jetzt startet jeder Schlüssel eine Engine von 1993, geschrieben für vertrauenswürdige Daten, außerhalb der Sandbox der Show, mit Tastendrücken und einer WAD, die dieser Schlüssel wählt. Weiter reicht das nicht: bis zu den Rechten von `zapper`, so weit wie das Visual eines Admin-Schlüssels.
 
+### Ein Profil für die Social-Erweiterung
+
+Das ergänzende Projekt **dem02socialTV** verbindet Fediverse-Beiträge mit der Röhre: Eine Erwähnung von `@bc101_TV@bonn.social` kann ein Pixel, ein kleines dem0-Programm oder eine Videotext-Zeile einwerfen. Für seinen Auftritt gibt es drei Avatar-Entwürfe: „Röhre“ mit Regenbogenspirale, „Einwurf“ mit einer Nachricht aus bunten Pixeln und „Videotext“ mit Textzeilen und RGB-Feldern. Sie wurden mit KI gestaltet und sind Vorschläge; das bisherige Profilbild wird dagegen aus einem dem0-Programm berechnet. Eine vereinfachte, animierte dem0-Version des Einwurf-Motivs kann selbst auf der Röhre laufen.
+
+![Röhre: brauner Fernseher mit Regenbogenspirale.](img/social-roehre.png){width=28%} ![Einwurf: Sprechblase und bunte Pixel vor einem blauen Fernseher.](img/social-einwurf.png){width=28%} ![Videotext: heller Fernseher mit Textzeilen und RGB-Feldern.](img/social-videotext.png){width=28%}
+
+*Drei Avatar-Entwürfe für tvtv social: Röhre, Einwurf und Videotext.*
+
 ## 8. Making-of mit einer KI
 
 Programmiert hat die Show ein KI-Modell, per SSH vom Mac aus. Es hat den Fernseher nie gesehen. Ein Mensch im Raum schon: Er meldete das schwarzweiße Bild, das Flackern, las die Zahlen von der Testkarte ab und sagte, wenn etwas falsch aussah. Alles andere, der C-Code, die Werkzeuge, die Folien, die Skripte, kam aus diesem Gespräch.
@@ -246,7 +254,7 @@ Drei Dinge haben das möglich gemacht, und es sind dieselben drei, die jede Graf
 
 **Ein Repository, einfache Dateien, kleine Werkzeuge.** Szenen sind Dateien mit zwei Funktionen. Folien sind Text. Die Flipbook-Spezifikation ist JSON. Die Werkzeuge sind ein C-Programm und ein Python-Skript ohne Abhängigkeiten. Nichts hier muss zweimal erklärt werden, und das zählt, wenn der Mitarbeiter zwischen zwei Sitzungen alles vergisst und das Repository liest, statt sich zu erinnern.
 
-Was das nicht ist: die Behauptung, die Bilder seien neu. Plasma, Tunnel, Feuer und Teilchen sind das gemeinsame Erbe der Demoszene, und die Show sagt das auf ihren eigenen Folien. Neu, oder zumindest selten, ist die Kombination: ein Einkern-Board von 2012, das einen Fernseher in einer Form ansteuert, die nicht flackert, eine Show, die sich selbst erklärt, während sie läuft, ein Build, in dem nirgends eine Bilddatei existiert, und eine Werkzeugkette, mit der ein Programmierer, der den Bildschirm nicht sehen kann, mit Zuversicht Bilder dorthin liefert.
+Was das nicht ist: die Behauptung, die Bilder seien neu. Plasma, Tunnel, Feuer und Teilchen sind das gemeinsame Erbe der Demoszene, und die Show sagt das auf ihren eigenen Folien. Neu, oder zumindest selten, ist die Kombination: ein Einkern-Board von 2012, das einen Fernseher in einer Form ansteuert, die nicht flackert, eine Show, die sich selbst erklärt, während sie läuft, Szenenbilder ohne Bilddateien als Vorlagen und eine Werkzeugkette, mit der ein Programmierer, der den Bildschirm nicht sehen kann, mit Zuversicht Bilder dorthin liefert.
 
 ## 9. Lizenzen und Dank
 
