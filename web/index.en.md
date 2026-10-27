@@ -13,6 +13,7 @@ nav:
   - {href: "flipbook.html", label: "Flipbook"}
   - {href: "whitepaper.html", label: "Whitepaper"}
   - {href: "https://github.com/bmmmm/tvtv", label: "GitHub"}
+  - {href: "https://bonn.social/%40bc101_TV", label: "Mastodon"}
 player: true
 footer: "created with ♥ in bitcircus101 · assisted by AI"
 credits: "Code GPL-3.0-or-later, texts CC-BY-4.0. The letters are Terminus, the Linux console font (OFL 1.1)."
