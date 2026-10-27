@@ -16,6 +16,7 @@ nav:
   - {href: "flipbook.html", label: "Flipbook"}
   - {href: "whitepaper.html", label: "Whitepaper", current: true}
   - {href: "https://github.com/bmmmm/tvtv", label: "GitHub"}
+  - {href: "https://bonn.social/%40bc101_TV", label: "Mastodon"}
 footer: "created with ♥ in bitcircus101 · assisted by AI"
 credits: "This text is CC-BY-4.0. Also available as a <a href=\"whitepaper.en.pdf\">PDF</a>."
 papersize: a4
@@ -27,21 +28,21 @@ margin:
 
 ## In brief
 
-- The old tube TV at bitcircus101 shows a demoscene show computed live on a Raspberry Pi 1 from 2012: 17 scenes and two slide decks, 50 frames per second on one 700 MHz core, no help from a GPU, no image files in the show.
+- The old tube TV at bitcircus101 shows a [demoscene](https://en.wikipedia.org/wiki/Demoscene) show computed live on a Raspberry Pi 1 from 2012: 17 scenes and two slide decks, 50 frames per second on one 700 MHz core, no help from a GPU, no image files in the show.
 - The hard part was not the effects but the video path: PAL instead of NTSC, 288 progressive lines instead of interlace flicker, and an overscan measured with a test card.
 - The whole thing is one C program: a 360 × 288 canvas in 16-bit colour, double-buffered into the Linux framebuffer with every pixel doubled on the way, a sequencer with cross-fades, and scenes that are files with two functions, `init()` and `frame(t)`.
-- Measured, not guessed: the sequencer logs the frame rate and the worst frame of every scene on the Pi, and a bench tool does the same off-line.
-- The show was written by an AI over SSH, without ever seeing the screen. The tools that made that possible, an offscreen renderer, motion probes, a self-contained flipbook and a deploy that checks the show stays up, are the part worth copying.
-- The same C code runs in the browser, compiled to WebAssembly, on the project website.
-- Members steer the show over SSH: `ssh zapper` is a remote control drawn in the terminal, every scene has a channel number, and scenes in C can be uploaded, built, test-run offscreen and swapped in with a rollback. The show runs in a sandbox, as a user that can do nothing else.
+- [Measured, not guessed](#measurements-on-the-pi-1): the sequencer logs the frame rate and the worst frame of every scene on the Pi, and a bench tool does the same off-line.
+- The show was written by an AI over SSH, without ever seeing the screen. The [tools](#the-tool-chain-seeing-without-a-screen) that made that possible, an offscreen renderer, motion probes, a self-contained flipbook and a deploy that checks the show stays up, are the part worth copying.
+- The same C code runs in the browser, compiled to [WebAssembly](https://webassembly.org/), on the [project website](https://bmmmm.github.io/tvtv/).
+- Members [steer the show over SSH](#the-remote-a-channel-number-for-every-scene): `ssh zapper` is a remote control drawn in the terminal, every scene has a channel number, and scenes in C can be uploaded, built, test-run offscreen and swapped in with a rollback. The show runs in a sandbox, as a user that can do nothing else.
 
 ## 1. A tube TV and a Pi from 2012
 
-bitcircus101 is a tech and creative space in Bonn. Somewhere in it stands an old tube TV, a Toshiba C-500, a five-inch portable colour set from the early 1980s with a telescopic antenna and a tuning scale on the front, and next to it a Raspberry Pi 1 Model B, the 2012 board with one ARM1176 core at 700 MHz and 512 MB of RAM. A composite cable connects the two. The TV is not a monitor; it is a television, with everything that implies: PAL, 50 half-pictures per second, overscan that hides the edges, and a slight softness that forgives a lot.
+[bitcircus101](https://bitcircus101.de) is a tech and creative space in Bonn. Somewhere in it stands an old tube TV, a Toshiba C-500, a five-inch portable colour set from the early 1980s with a telescopic antenna and a tuning scale on the front, and next to it a [Raspberry Pi 1 Model B](https://en.wikipedia.org/wiki/Raspberry_Pi), the 2012 board with one ARM1176 core at 700 MHz and 512 MB of RAM. A composite cable connects the two. The TV is not a monitor; it is a television, with everything that implies: [PAL](https://en.wikipedia.org/wiki/PAL), 50 half-pictures per second, overscan that hides the edges, and a slight softness that forgives a lot.
 
 The idea was simple and a little stubborn: the TV should show something alive, and everything it shows should come from code. No video file, no slideshow of PNGs, no browser kiosk. A C program computes every pixel in real time and writes it into the framebuffer, the way a demo did on a home computer in the 1990s. Seventeen scenes loop forever: plasma, a tunnel, fire, a juggling clown, flower power, a synthwave horizon, a cathode ray tube in 3D that explains itself, Bernd das Brot bouncing like the DVD logo. Two slide decks, in German, explain how it all works, with live demos at the bottom of every slide.
 
-The stubborn part is the rule that the show needs no image files. The flipbook on the website, the scene figures in this paper and the show in the browser are rendered from the same source code. Change a scene, and every picture of it changes with it. The social extension's avatar concepts shown later are separate graphics for the documentation.
+The stubborn part is the rule that the show needs no image files. The [flipbook](https://bmmmm.github.io/tvtv/flipbook.html) on the website, the scene figures in this paper and the [show in the browser](https://bmmmm.github.io/tvtv/) are rendered from the same source code. Change a scene, and every picture of it changes with it. The social extension's avatar concepts shown later are separate graphics for the documentation.
 
 ![The show in the browser: the same C code, compiled to WebAssembly, stepped at 50 frames per second like the Pi.](img/outrun.png){width=82%}
 
@@ -93,13 +94,13 @@ typedef struct {
 } Scene;
 ```
 
-That is the whole interface. `init()` runs once when the scene starts and precomputes whatever is expensive. `frame(t, dt)` draws the picture for scene time `t` into the canvas. A scene is one file in `src/scenes/`, and a table in `src/scenes.c` lists the seventeen scenes of the loop in play order and the extras that only run on request: the two slide decks and the test card. The loop runs just under three minutes, 176 seconds, before it starts again.
+That is the whole interface. `init()` runs once when the scene starts and precomputes whatever is expensive. `frame(t, dt)` draws the picture for scene time `t` into the canvas. A scene is one file in [`src/scenes/`](https://github.com/bmmmm/tvtv/tree/main/src/scenes), and a table in [`src/scenes.c`](https://github.com/bmmmm/tvtv/blob/main/src/scenes.c) lists the seventeen scenes of the loop in play order and the extras that only run on request: the two slide decks and the test card. The loop runs just under three minutes, 176 seconds, before it starts again.
 
 ### Fifty times a second
 
-The sequencer in `main.c` is a loop with four steps: the scene draws into the canvas, the fade scales the picture at the start and end of a scene, the blit copies the canvas into the framebuffer, and a sleep waits for the next 20 ms tick. The tick is an absolute time, not a relative delay: the program computes when the next frame is due and sleeps until then with `clock_nanosleep` and `TIMER_ABSTIME`, so a frame that finishes early does not drift the schedule. A frame that finishes late is followed by the next one immediately, and only when the program falls more than 100 ms behind does it give up and restart the schedule from now. The time step handed to a scene is capped at 50 ms, so a hiccup never makes a particle jump across the screen.
+The sequencer in [`main.c`](https://github.com/bmmmm/tvtv/blob/main/src/main.c) is a loop with four steps: the scene draws into the canvas, the fade scales the picture at the start and end of a scene, the blit copies the canvas into the framebuffer, and a sleep waits for the next 20 ms tick. The tick is an absolute time, not a relative delay: the program computes when the next frame is due and sleeps until then with `clock_nanosleep` and `TIMER_ABSTIME`, so a frame that finishes early does not drift the schedule. A frame that finishes late is followed by the next one immediately, and only when the program falls more than 100 ms behind does it give up and restart the schedule from now. The time step handed to a scene is capped at 50 ms, so a hiccup never makes a particle jump across the screen.
 
-Every scene gets a line in `/run/tvtv-show/anim.log` when it ends: its average frame rate and its worst frame in milliseconds. Those two numbers are the whole performance story of the show, and chapter 5 is about them.
+Every scene gets a line in `/run/tvtv-show/anim.log` when it ends: its average frame rate and its worst frame in milliseconds. Those two numbers are the whole performance story of the show, and [chapter 5](#measurements-on-the-pi-1) is about them.
 
 ### One pixel becomes two
 
@@ -125,11 +126,11 @@ Palettes are the second old trick. A scene like the plasma or the fire does not 
 
 ### Fonts and text
 
-The letters are Terminus, the Linux console font, in two sizes: 16 × 32 bold for titles and 8 × 16 bold for body text. `make` extracts them from the system's console fonts on the Pi, so the repository carries no font files. The program reads the PSF files next to the executable and maps Latin-1 code points to glyphs; the slide decks are UTF-8 and are converted to Latin-1 on loading, which covers German comfortably.
+The letters are [Terminus](https://terminus-font.sourceforge.net/), the Linux console font, in two sizes: 16 × 32 bold for titles and 8 × 16 bold for body text. `make` extracts them from the system's console fonts on the Pi, so the repository carries no font files. The program reads the PSF files next to the executable and maps Latin-1 code points to glyphs; the slide decks are UTF-8 and are converted to Latin-1 on loading, which covers German comfortably.
 
 ### The slides are data
 
-The two decks live in `slides/*.txt`. A line starting with `#` begins a slide, a line starting with `@` picks the live demo strip at the bottom, a line starting with `>` is code, everything else is body text that types itself out. The demo strips are small scenes of their own: a pipeline of boxes, a pixel buffer that shows how a one-dimensional array becomes a two-dimensional picture, a heat buffer with its numbers visible, a palette that cycles, and a CPU meter that reads the program's own usage from `/proc/self/stat` once a second.
+The two decks live in [`slides/*.txt`](https://github.com/bmmmm/tvtv/tree/main/slides). A line starting with `#` begins a slide, a line starting with `@` picks the live demo strip at the bottom, a line starting with `>` is code, everything else is body text that types itself out. The demo strips are small scenes of their own: a pipeline of boxes, a pixel buffer that shows how a one-dimensional array becomes a two-dimensional picture, a heat buffer with its numbers visible, a palette that cycles, and a CPU meter that reads the program's own usage from `/proc/self/stat` once a second.
 
 ![A slide from the making-of deck with its demo strip: the signal path from Mac to Pi to TV.](img/explain.png){width=82%}
 
@@ -141,7 +142,7 @@ The two decks live in `slides/*.txt`. A line starting with `#` begins a slide, a
 
 **Tunnel and kaleidoscope.** The angle and distance tables turn the screen into polar coordinates. In the tunnel, angle becomes the u of a texture and distance becomes v, and advancing v with time flies the camera down the tube; "BC101" is stamped into the wall texture. The kaleidoscope folds the angle into eight wedges and mirrors every other one, with a spinning flower in the middle.
 
-**Fire.** The fire is the one from the PlayStation port of Doom (1995), as documented by Fabien Sanglard: the bottom row of a heat buffer glows, every frame each value moves up one line, cools by a random amount and drifts sideways by a random pixel. A palette of 37 entries, from black over red and yellow to white, turns heat into colour. Here the fire runs at half resolution, the letters of the title are heat sources themselves, so the logo burns, and at the end the bottom row is extinguished and the fire dies down.
+**Fire.** The fire is the one from the PlayStation port of Doom (1995), as documented by [Fabien Sanglard](https://fabiensanglard.net/doom_fire_psx/): the bottom row of a heat buffer glows, every frame each value moves up one line, cools by a random amount and drifts sideways by a random pixel. A palette of 37 entries, from black over red and yellow to white, turns heat into colour. Here the fire runs at half resolution, the letters of the title are heat sources themselves, so the logo burns, and at the end the bottom row is extinguished and the fire dies down.
 
 ![Fire: a heat buffer that rises, cools and drifts; the title burns.](img/fire.png){width=82%}
 
@@ -173,7 +174,7 @@ The budget is 20 milliseconds per frame, and the Pi 1 has one core to spend it o
 
 The first is the log the sequencer writes on the Pi: average frames per second and the worst frame per scene, measured on the real hardware, with the real framebuffer blit included. The scene that explains the cathode ray tube, the heaviest in the loop, holds 50.0 fps in the running show. Measured next to the show on the same core with the bench tool, its frames take 9 to 13 ms, leaving room for the blit and the kernel.
 
-The second instrument is `build/preview ... bench`, which renders a given number of frames off-line and reports the average and the worst. On a workstation its numbers say nothing about the Pi, they are 20 to 50 times smaller, but as a ratio between two versions of a scene they say everything: if a change doubles the frame time on the Mac, it doubles it on the Pi too.
+The second instrument is [`build/preview ... bench`](https://github.com/bmmmm/tvtv/blob/main/tools/preview.c), which renders a given number of frames off-line and reports the average and the worst. On a workstation its numbers say nothing about the Pi, they are 20 to 50 times smaller, but as a ratio between two versions of a scene they say everything: if a change doubles the frame time on the Mac, it doubles it on the Pi too.
 
 <!-- A table with every scene's fps and worst frame from a full run of the show on the Pi
      goes here (cat /run/tvtv-show/anim.log after one loop). -->
@@ -186,39 +187,39 @@ The show was written over SSH by someone who could not look at the TV, and even 
 
 ### The offscreen renderer
 
-`build/preview` links every scene without the framebuffer and builds on Linux and macOS. It writes single frames as BMP for chosen times, numbered frame sequences at a given frame rate, benchmarks a scene, and probes it: for a list of times it prints where the pure white pixels are, as a centroid, and the box around everything that is not black. The centroid is enough to check that a marker moves the way it should.
+[`build/preview`](https://github.com/bmmmm/tvtv/blob/main/tools/preview.c) links every scene without the framebuffer and builds on Linux and macOS. It writes single frames as BMP for chosen times, numbered frame sequences at a given frame rate, benchmarks a scene, and probes it: for a list of times it prints where the pure white pixels are, as a centroid, and the box around everything that is not black. The centroid is enough to check that a marker moves the way it should.
 
-That last mode exists because of a bug that stills could not show. The beam in the cathode ray tube scene steps at 12.5 frames per second, and at one point its motion aliased against that stepping: every single frame looked right, and in motion the beam ran backwards. Only a series of centroids over consecutive steps revealed it. The lesson went into the README: stills miss motion bugs, probe positions over consecutive steps, and hash frames that must be identical.
+That last mode exists because of a bug that stills could not show. The beam in the cathode ray tube scene steps at 12.5 frames per second, and at one point its motion aliased against that stepping: every single frame looked right, and in motion the beam ran backwards. Only a series of centroids over consecutive steps revealed it. The lesson went into the [README](https://github.com/bmmmm/tvtv/blob/main/README.md): stills miss motion bugs, probe positions over consecutive steps, and hash frames that must be identical.
 
 ### The flipbook
 
-A still is a claim; a flipbook is evidence. `tools/flipbook.py` renders whole scenes at their native stepping and bundles every frame into one HTML file, playable and scrubbable, with a timeline, marks and notes per scene. The file loads nothing from the net, not even a font, so it can be mailed or dropped anywhere. It is standard-library Python only: the BMP frames are converted to PNG with `zlib` and a hand-written chunk writer and embedded as data URIs.
+A still is a claim; a flipbook is evidence. [`tools/flipbook.py`](https://github.com/bmmmm/tvtv/blob/main/tools/flipbook.py) renders whole scenes at their native stepping and bundles every frame into one HTML file, playable and scrubbable, with a timeline, marks and notes per scene. The file loads nothing from the net, not even a font, so it can be mailed or dropped anywhere. It is standard-library Python only: the BMP frames are converted to PNG with `zlib` and a hand-written chunk writer and embedded as data URIs.
 
 One detail shows how literal such tools have to be. The renderer samples each frame one millisecond after its nominal time, because a scene that steps at exactly the sampling rate, the tube at 12.5 fps, must not be sampled on its step boundaries, where floating-point rounding picks the previous step and the flipbook shows every frame twice.
 
 ### Deploy that checks itself
 
-The repository is the source of truth; the Pi only ever receives copies. `scripts/deploy.sh` syncs the sources with `rsync` and installs the systemd unit it renders itself, then runs `tools/install.sh` on the Pi, which builds as the service user, enables and restarts the service, and then watches it for three seconds. If the show is not still running with the same process ID after that, the deploy fails. A scene that crashes on the Pi but not on the Mac is caught at deploy time, not the next morning.
+The repository is the source of truth; the Pi only ever receives copies. [`scripts/deploy.sh`](https://github.com/bmmmm/tvtv/blob/main/scripts/deploy.sh) syncs the sources with `rsync` and installs the systemd unit it renders itself, then runs [`tools/install.sh`](https://github.com/bmmmm/tvtv/blob/main/tools/install.sh) on the Pi, which builds as the service user, enables and restarts the service, and then watches it for three seconds. If the show is not still running with the same process ID after that, the deploy fails. A scene that crashes on the Pi but not on the Mac is caught at deploy time, not the next morning.
 
 The build itself learned a lesson the hard way. A reboot in the middle of `make` once left a zero-byte object file with a fresh timestamp; `make` took it for current and the link failed with an undefined reference. Since then every target is written to a temporary name and renamed, and `.DELETE_ON_ERROR` removes half-written files when a recipe fails.
 
 ### The show in the browser
 
-The website runs the show with the real scene code. A small shim replaces the framebuffer with an RGBA buffer and the sequencer with four exported functions, Emscripten compiles the scenes, the fonts and the slide decks into a 121 KB WebAssembly module, and a page script copies each frame onto a canvas. The browser steps the show in fixed 20 ms ticks, whatever the display's refresh rate, so the scenes that build their state frame by frame look exactly as they do on the tube. A smoke test under Node plays one second of every scene and fails the build if one of them draws nothing.
+The [website](https://bmmmm.github.io/tvtv/) runs the show with the real scene code. A small shim replaces the framebuffer with an RGBA buffer and the sequencer with four exported functions, [Emscripten](https://emscripten.org/) compiles the scenes, the fonts and the slide decks into a 121 KB [WebAssembly](https://webassembly.org/) module, and a page script copies each frame onto a canvas. The browser steps the show in fixed 20 ms ticks, whatever the display's refresh rate, so the scenes that build their state frame by frame look exactly as they do on the tube. A smoke test under Node plays one second of every scene and fails the build if one of them draws nothing.
 
 ### Continuous integration
 
-Every push builds the whole website on GitHub's runners with the same `make site` a developer runs locally: the WebAssembly module, both flipbooks, this paper as HTML and PDF, the figures. A full-history secret scan and `shellcheck` over the scripts complete the set. Pushes to `main` deploy to GitHub Pages.
+Every push builds the whole website on GitHub's runners ([`pages.yml`](https://github.com/bmmmm/tvtv/blob/main/.github/workflows/pages.yml)) with the same `make site` a developer runs locally: the WebAssembly module, both flipbooks, this paper as HTML and PDF, the figures. A full-history [secret scan](https://github.com/bmmmm/tvtv/blob/main/.github/workflows/security.yml) and [`shellcheck`](https://github.com/bmmmm/tvtv/blob/main/.github/workflows/shellcheck.yml) over the scripts complete the set. Pushes to `main` deploy to [GitHub Pages](https://pages.github.com/).
 
 ## 7. The remote: a channel number for every scene
 
-A show in a shared space needs a way to say "that one, now". The remote control is the member-facing side of tvtv, and it is deliberately not an app: it is `ssh zapper@<the pi>`. With a terminal, that opens the zapper, a remote control drawn in text: LED digits for the channel, the programme grid, a progress bar, the keys a TV set would have. With a command it is one shot: `ssh zapper 7` holds channel 7, `next` skips, `auto` returns to the loop, `play testcard 30` shows something once. It works from a phone's SSH app as well as from a laptop. And like the remote of a TV set it also switches the show on: systemd holds the control socket open, and the first command that arrives starts the show if it was stopped.
+A show in a shared space needs a way to say "that one, now". The remote control is the member-facing side of tvtv, and it is deliberately not an app: it is `ssh zapper@<the pi>` ([guide](https://github.com/bmmmm/tvtv/blob/main/docs/remote.md)). With a terminal, that opens the zapper, a remote control drawn in text: LED digits for the channel, the programme grid, a progress bar, the keys a TV set would have. With a command it is one shot: `ssh zapper 7` holds channel 7, `next` skips, `auto` returns to the loop, `play testcard 30` shows something once. It works from a phone's SSH app as well as from a laptop. And like the remote of a TV set it also switches the show on: systemd holds the control socket open, and the first command that arrives starts the show if it was stopped.
 
 Every scene has a channel number: 00 is standby, a black picture that keeps the service running; 01 to 17 are the loop in play order; 20 to 22 the extras; 30 and up are *visuals*, scenes that members upload. Behind the numbers is a small control socket in the sequencer. Once per frame it polls a Unix socket for a line of text and answers with `ok` or `err`; `status`, `list` and `log` read, `tune`, `play`, `next` and `auto` change what happens after the current fade. Nothing is interrupted mid-frame: a change is a request that the sequencer honours at the next fade, so the picture on the tube always looks intentional.
 
 A visual is a scene like any other: a C file that defines `const Scene scene_<name>`. `ssh zapper upload foo < foo.c` sends it. On the Pi it is checked (text, size, the definition), compiled with the show's flags, and run offscreen through its whole length with the preview tool, so a crash or an absurd frame time ends there and not on the tube. Then a new binary is linked, the running show is asked to `exec` it after its fade, and it carries its channel and mode across, so nobody in the room sees a restart. If the new build does not answer within seconds, the previous binary, kept as a hard link, goes back and systemd restarts it. A compile error comes back to the uploader as the compiler's own message.
 
-Code from members is still code. The protection is not a filter over the source but the box the show runs in. The service user `zapper` has no shell: sshd's `ForceCommand` gives every key exactly one program, a dispatcher that parses the command against a whitelist of characters and words before anything else happens, and keys carry a role, `op` zaps, `admin` also uploads and deletes. The show itself runs as that user inside a systemd sandbox: no network, a read-only file system including its own directory, only the framebuffer and the console as devices, no way to gain privileges, a syscall filter; `systemd-analyze security` rates it 0.8 of 10. The dispatcher's own client, `tvctl`, is built without scene code, so a visual that dies on start cannot take down the hand that controls it. What an admin key means is therefore exactly this: code runs as `zapper`, with those rights and no others. The deploy path keeps the same promise in the other direction: the unit file comes from the workstation, and the deploying login may only build and sync as `zapper` plus a few fixed `systemctl` commands, so nothing `zapper` can write ever reaches root.
+Code from members is still code. The protection is not a filter over the source but the box the show runs in. The service user `zapper` has no shell: sshd's `ForceCommand` gives every key exactly one program, a [dispatcher](https://github.com/bmmmm/tvtv/blob/main/tools/tv-dispatch) that parses the command against a whitelist of characters and words before anything else happens, and keys carry a role, `op` zaps, `admin` also uploads and deletes. The show itself runs as that user inside a systemd sandbox: no network, a read-only file system including its own directory, only the framebuffer and the console as devices, no way to gain privileges, a syscall filter; `systemd-analyze security` rates it 0.8 of 10. The dispatcher's own client, [`tvctl`](https://github.com/bmmmm/tvtv/blob/main/src/tvctl.c), is built without scene code, so a visual that dies on start cannot take down the hand that controls it. What an admin key means is therefore exactly this: code runs as `zapper`, with those rights and no others. The deploy path keeps the same promise in the other direction: the unit file comes from the workstation, and the deploying login may only build and sync as `zapper` plus a few fixed `systemctl` commands, so nothing `zapper` can write ever reaches root.
 
 The one cost is CPU. The Pi has one core and the show wants all of it; an open SSH session spends some on encryption, and the zapper polls the show twice a second. A few long frames while someone is zapping are the price of the remote.
 
@@ -236,7 +237,7 @@ Doom also changes what a key means. Until now an op key could only zap; now any 
 
 ### A profile for the social extension
 
-The companion project **dem02socialTV** connects Fediverse posts to the tube: mentioning `@bc101_TV@bonn.social` can submit a pixel, a small dem0 program or a line of teletext. Three avatar concepts offer different looks for its profile: “Röhre” with a rainbow spiral, “Einwurf” with a message made of colourful pixels, and “Videotext” with text lines and RGB blocks. They were created with AI and remain proposals; the existing profile picture is computed from a dem0 program. A simplified, animated dem0 version of the Einwurf design can run on the tube itself.
+The companion project **dem02socialTV** connects [Fediverse](https://en.wikipedia.org/wiki/Fediverse) posts to the tube: mentioning [`@bc101_TV@bonn.social`](https://bonn.social/@bc101_TV) can submit a pixel, a small dem0 program or a line of teletext. Three avatar concepts offer different looks for its profile: “Röhre” with a rainbow spiral, “Einwurf” with a message made of colourful pixels, and “Videotext” with text lines and RGB blocks. They were created with AI and remain proposals; the existing profile picture is computed from a dem0 program. A simplified, animated dem0 version of the Einwurf design can run on the tube itself.
 
 ![Röhre: a brown television with a rainbow spiral.](img/social-roehre.png){width=28%} ![Einwurf: a speech bubble and colourful pixels in front of a blue television.](img/social-einwurf.png){width=28%} ![Videotext: a light-coloured television with text lines and RGB blocks.](img/social-videotext.png){width=28%}
 
@@ -258,8 +259,14 @@ What this is not: a claim that the pictures are new. Plasma, tunnels, fire and p
 
 ## 9. Licences and thanks
 
-The code is GPL-3.0-or-later; the texts, this paper, the slide decks and the flipbook notes are CC-BY-4.0, so they can travel into talks, articles and newsletters with an attribution to bitcircus101. The letters are Terminus by Dimitar Zhekov, which the website bundles under the SIL Open Font License 1.1. The fire follows the PlayStation Doom effect as described by Fabien Sanglard. The rest is the demoscene's, with thanks.
+The code is [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.html); the texts, this paper, the slide decks and the flipbook notes are [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), so they can travel into talks, articles and newsletters with an attribution to [bitcircus101](https://bitcircus101.de). The letters are [Terminus](https://terminus-font.sourceforge.net/) by Dimitar Zhekov, which the website bundles under the [SIL Open Font License 1.1](https://openfontlicense.org/). The fire follows the PlayStation Doom effect as described by [Fabien Sanglard](https://fabiensanglard.net/doom_fire_psx/). The rest is the [demoscene](https://en.wikipedia.org/wiki/Demoscene)'s, with thanks.
 
-Source, slides and tools: <https://github.com/bmmmm/tvtv>. The show, the flipbook and this paper: <https://bmmmm.github.io/tvtv/>.
+Further reading:
+
+- Source, slides and tools: <https://github.com/bmmmm/tvtv>
+- The show, the flipbook and this paper: <https://bmmmm.github.io/tvtv/>
+- Build your own remote: <https://github.com/bmmmm/tvtv/blob/main/docs/remote.md>
+- The tube in the Fediverse: [`@bc101_TV@bonn.social`](https://bonn.social/@bc101_TV)
+- The space behind it: [bitcircus101](https://bitcircus101.de)
 
 created with ♥ in bitcircus101 · assisted by AI
